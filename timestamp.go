@@ -1,4 +1,4 @@
-package reiner
+package rushia
 
 import "strings"
 

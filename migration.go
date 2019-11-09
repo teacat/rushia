@@ -1,4 +1,4 @@
-package reiner
+package rushia
 
 import (
 	"fmt"
@@ -185,9 +185,8 @@ const (
 
 // Migration 是一個資料庫表格的遷移系統。
 type Migration struct {
-	connection *DB
-	table      table
-	columns    []column
+	table   table
+	columns []column
 
 	// LasyQuery 是最後一次所執行的 SQL 指令。
 	LastQuery string
@@ -232,175 +231,175 @@ type key struct {
 }
 
 // newMigration 會基於傳入的資料庫連線來建立一個新的資料表格遷移系統。
-func newMigration(db *DB) *Migration {
-	return &Migration{connection: db}
+func newMigration() Migration {
+	return Migration{}
 }
 
 // TinyInt 會將最後一個欲建立的欄位資料型態設置為 `tinyint`。
-func (m *Migration) TinyInt(length int) *Migration {
+func (m Migration) TinyInt(length int) Migration {
 	return m.setColumnType("tinyint", length)
 }
 
 // SmallInt 會將最後一個欲建立的欄位資料型態設置為 `smallint`。
-func (m *Migration) SmallInt(length int) *Migration {
+func (m Migration) SmallInt(length int) Migration {
 	return m.setColumnType("smallint", length)
 }
 
 // MediumInt 會將最後一個欲建立的欄位資料型態設置為 `mediumint`。
-func (m *Migration) MediumInt(length int) *Migration {
+func (m Migration) MediumInt(length int) Migration {
 	return m.setColumnType("mediumint", length)
 }
 
 // Int 會將最後一個欲建立的欄位資料型態設置為 `int`。
-func (m *Migration) Int(length int) *Migration {
+func (m Migration) Int(length int) Migration {
 	return m.setColumnType("int", length)
 }
 
 // BigInt 會將最後一個欲建立的欄位資料型態設置為 `bigint`。
-func (m *Migration) BigInt(length int) *Migration {
+func (m Migration) BigInt(length int) Migration {
 	return m.setColumnType("bigint", length)
 }
 
 // Char 會將最後一個欲建立的欄位資料型態設置為 `char`。
-func (m *Migration) Char(length int) *Migration {
+func (m Migration) Char(length int) Migration {
 	return m.setColumnType("char", length)
 }
 
 // Varchar 會將最後一個欲建立的欄位資料型態設置為 `varchar`。
-func (m *Migration) Varchar(length int) *Migration {
+func (m Migration) Varchar(length int) Migration {
 	return m.setColumnType("varchar", length)
 }
 
 // TinyText 會將最後一個欲建立的欄位資料型態設置為 `tinytext`。
-func (m *Migration) TinyText() *Migration {
+func (m Migration) TinyText() Migration {
 	return m.setColumnType("tinytext")
 }
 
 // Text 會將最後一個欲建立的欄位資料型態設置為 `text`。
-func (m *Migration) Text() *Migration {
+func (m Migration) Text() Migration {
 	return m.setColumnType("text")
 }
 
 // MediumText 會將最後一個欲建立的欄位資料型態設置為 `mediumtext`。
-func (m *Migration) MediumText() *Migration {
+func (m Migration) MediumText() Migration {
 	return m.setColumnType("mediumtext")
 }
 
 // LongText 會將最後一個欲建立的欄位資料型態設置為 `longtext`。
-func (m *Migration) LongText() *Migration {
+func (m Migration) LongText() Migration {
 	return m.setColumnType("longtext")
 }
 
 // Binary 會將最後一個欲建立的欄位資料型態設置為 `binary`。
-func (m *Migration) Binary(length int) *Migration {
+func (m Migration) Binary(length int) Migration {
 	return m.setColumnType("binary", length)
 }
 
 // VarBinary 會將最後一個欲建立的欄位資料型態設置為 `varbinary`。
-func (m *Migration) VarBinary(length int) *Migration {
+func (m Migration) VarBinary(length int) Migration {
 	return m.setColumnType("varbinary", length)
 }
 
 // Bit 會將最後一個欲建立的欄位資料型態設置為 `bit`。
-func (m *Migration) Bit(length int) *Migration {
+func (m Migration) Bit(length int) Migration {
 	return m.setColumnType("bit", length)
 }
 
 // TinyBlob 會將最後一個欲建立的欄位資料型態設置為 `tinyblob`。
-func (m *Migration) TinyBlob() *Migration {
+func (m Migration) TinyBlob() Migration {
 	return m.setColumnType("tinyblob")
 }
 
 // Blob 會將最後一個欲建立的欄位資料型態設置為 `blob`。
-func (m *Migration) Blob() *Migration {
+func (m Migration) Blob() Migration {
 	return m.setColumnType("blob")
 }
 
 // MediumBlob 會將最後一個欲建立的欄位資料型態設置為 `mediumblob`。
-func (m *Migration) MediumBlob() *Migration {
+func (m Migration) MediumBlob() Migration {
 	return m.setColumnType("mediumblob")
 }
 
 // LongBlob 會將最後一個欲建立的欄位資料型態設置為 `longblob`。
-func (m *Migration) LongBlob() *Migration {
+func (m Migration) LongBlob() Migration {
 	return m.setColumnType("longblob")
 }
 
 // Date 會將最後一個欲建立的欄位資料型態設置為 `date`。
-func (m *Migration) Date() *Migration {
+func (m Migration) Date() Migration {
 	return m.setColumnType("date")
 }
 
 // DateTime 會將最後一個欲建立的欄位資料型態設置為 `datetime`。
-func (m *Migration) DateTime() *Migration {
+func (m Migration) DateTime() Migration {
 	return m.setColumnType("dateTime")
 }
 
 // Time 會將最後一個欲建立的欄位資料型態設置為 `time`。
-func (m *Migration) Time() *Migration {
+func (m Migration) Time() Migration {
 	return m.setColumnType("time")
 }
 
 // Timestamp 會將最後一個欲建立的欄位資料型態設置為 `timestamp`。
-func (m *Migration) Timestamp() *Migration {
+func (m Migration) Timestamp() Migration {
 	return m.setColumnType("timestamp")
 }
 
 // Year 會將最後一個欲建立的欄位資料型態設置為 `year`。
-func (m *Migration) Year() *Migration {
+func (m Migration) Year() Migration {
 	return m.setColumnType("year")
 }
 
 // Double 會將最後一個欲建立的欄位資料型態設置為 `double`。
-func (m *Migration) Double(length ...int) *Migration {
+func (m Migration) Double(length ...int) Migration {
 	return m.setColumnType("double", length)
 }
 
 // Decimal 會將最後一個欲建立的欄位資料型態設置為 `decimal`。
 //     .Decimal(2, 1)
-func (m *Migration) Decimal(length ...int) *Migration {
+func (m Migration) Decimal(length ...int) Migration {
 	return m.setColumnType("decimal", length)
 }
 
 // Float 會將最後一個欲建立的欄位資料型態設置為 `float`。
 //     .Float(2, 1)
 //     .Float(1)
-func (m *Migration) Float(length ...int) *Migration {
+func (m Migration) Float(length ...int) Migration {
 	return m.setColumnType("float", length)
 }
 
 // Enum 會將最後一個欲建立的欄位資料型態設置為 `enum`。
 //     .Enum(1, 2, "A", "B")
-func (m *Migration) Enum(types ...interface{}) *Migration {
+func (m Migration) Enum(types ...interface{}) Migration {
 	return m.setColumnType("enum", types)
 }
 
 // Set 會將最後一個欲建立的欄位資料型態設置為 `set`。
 //     .Set(1, 2, "A", "B")
-func (m *Migration) Set(types ...interface{}) *Migration {
+func (m Migration) Set(types ...interface{}) Migration {
 	return m.setColumnType("set", types)
 }
 
 // Column 會建立一個新的欄位。
-func (m *Migration) Column(name string) *Migration {
+func (m Migration) Column(name string) Migration {
 	m.columns = append(m.columns, column{name: name, defaultValue: false})
 	return m
 }
 
 // Charset 會設置資料表格的字符集。
-func (m *Migration) Charset(charset CharsetType) *Migration {
+func (m Migration) Charset(charset CharsetType) Migration {
 	m.table.charset = charset
 	return m
 }
 
 // Collation 會設置資料表格的字符校對格式。
-func (m *Migration) Collation(collation CollationType) *Migration {
+func (m Migration) Collation(collation CollationType) Migration {
 	m.table.collation = collation
 	return m
 }
 
 // Engine 能夠設置資料表的引擎種類。
-func (m *Migration) Engine(engine EngineType) *Migration {
+func (m Migration) Engine(engine EngineType) Migration {
 	m.table.engineType = engine
 	return m
 }
@@ -411,7 +410,7 @@ func (m *Migration) Engine(engine EngineType) *Migration {
 //     .Primary([]string{"id", "username"})
 // 當第一個參數是字串，第二個則是字串切片時則會建立一個命名的主鍵群組。
 //     .Primary("pk_group", []string{"id", "username"})
-func (m *Migration) Primary(args ...interface{}) *Migration {
+func (m Migration) Primary(args ...interface{}) Migration {
 	switch len(args) {
 	// Primary()
 	case 0:
@@ -439,7 +438,7 @@ func (m *Migration) Primary(args ...interface{}) *Migration {
 //     .Unique([]string{"id", "username"})
 // 當第一個參數是字串，第二個則是字串切片時則會建立一個命名的不重覆鍵群組。
 //     .Unique("uk_group", []string{"id", "username"})
-func (m *Migration) Unique(args ...interface{}) *Migration {
+func (m Migration) Unique(args ...interface{}) Migration {
 	switch len(args) {
 	// Unique()
 	case 0:
@@ -467,7 +466,7 @@ func (m *Migration) Unique(args ...interface{}) *Migration {
 //     .Index([]string{"id", "username"})
 // 當第一個參數是字串，第二個則是字串切片時則會建立一個命名的索引群組。
 //     .Index("ik_group", []string{"id", "username"})
-func (m *Migration) Index(args ...interface{}) *Migration {
+func (m Migration) Index(args ...interface{}) Migration {
 	switch len(args) {
 	// Index()
 	case 0:
@@ -497,13 +496,13 @@ func (m *Migration) Index(args ...interface{}) *Migration {
 }
 
 // OnUpdate 能夠決定外鍵資料變更時，相關欄位該做什麼處置（例如：`NO ACTION`、`SET NULL`、等）。
-func (m *Migration) OnUpdate(action string) *Migration {
+func (m Migration) OnUpdate(action string) Migration {
 	m.table.foreignKeys[len(m.table.foreignKeys)-1].onUpdate = action
 	return m
 }
 
 // OnDelete 能夠決定外鍵資料被刪除時，相關欄位該做什麼處置（例如：`NO ACTION`、`SET NULL`、等）。
-func (m *Migration) OnDelete(action string) *Migration {
+func (m Migration) OnDelete(action string) Migration {
 	m.table.foreignKeys[len(m.table.foreignKeys)-1].onDelete = action
 	return m
 }
@@ -515,7 +514,7 @@ func (m *Migration) OnDelete(action string) *Migration {
 //     .Foreign([]string{"id", "username"}, []string{"users.id", "users.username"})
 // 而一個命名的外鍵群組，第一個參數則是群組的名稱，其他參數與匿名群組無異。
 //     .Foreign("fk_group", []string{"id", "username"}, []string{"users.id", "users.username"})
-func (m *Migration) Foreign(args ...interface{}) *Migration {
+func (m Migration) Foreign(args ...interface{}) Migration {
 	switch len(args) {
 	// Foreign("users.id")
 	case 1:
@@ -562,38 +561,38 @@ func (m *Migration) Foreign(args ...interface{}) *Migration {
 }
 
 // Nullable 會將最後一個欄位設置為允許空值。
-func (m *Migration) Nullable() *Migration {
+func (m Migration) Nullable() Migration {
 	m.columns[len(m.columns)-1].defaultValue = nil
 	m.columns[len(m.columns)-1].nullable = true
 	return m
 }
 
 // Unsigned 會將最後一個欄位設置為非負數欄位。
-func (m *Migration) Unsigned() *Migration {
+func (m Migration) Unsigned() Migration {
 	m.columns[len(m.columns)-1].unsigned = true
 	return m
 }
 
 // Comment 能夠替最後一個欄位設置說明。
-func (m *Migration) Comment(text string) *Migration {
+func (m Migration) Comment(text string) Migration {
 	m.columns[len(m.columns)-1].comment = text
 	return m
 }
 
 // Default 能夠替最後一個欄位設置預設值，可以是 nil、字串、正整數或者 `CURRENT_TIMESTAMP` 和 `NOW()`。
-func (m *Migration) Default(value interface{}) *Migration {
+func (m Migration) Default(value interface{}) Migration {
 	m.columns[len(m.columns)-1].defaultValue = value
 	return m
 }
 
 // AutoIncrement 會將最後一個欄位設置為自動遞增，這僅能用於正整數欄位上。
-func (m *Migration) AutoIncrement() *Migration {
+func (m Migration) AutoIncrement() Migration {
 	m.columns[len(m.columns)-1].autoIncrement = true
 	return m
 }
 
 // Table 會準備一個資料表格供後續建立。
-func (m *Migration) Table(tableName string, comment ...string) *Migration {
+func (m Migration) Table(tableName string, comment ...string) Migration {
 	// 設置表格名稱。
 	m.table.name = tableName
 	// 如果有指定表格備註的話就將其保存。
@@ -604,11 +603,9 @@ func (m *Migration) Table(tableName string, comment ...string) *Migration {
 }
 
 // Create 會執行先前的所有設置並且建立出一個相對應資料表格與其中的所有欄位。
-func (m *Migration) Create() (err error) {
+func (m Migration) Create() (query string) {
 	// 建置出主要的 SQL 執行指令。
-	query := m.tableBuilder()
-	// 執行指令來建立相關的資料表格與欄位。
-	_, err = m.connection.exec(query)
+	query = m.tableBuilder()
 	// 保存最後一次所執行的 SQL 指令。
 	m.LastQuery = query
 	// 清除資料、欄位來重新開始一個資料表格遷移系統。
@@ -617,17 +614,19 @@ func (m *Migration) Create() (err error) {
 }
 
 // Drop 會移除指定的資料表格，並在找不到資料表格時回傳錯誤。
-func (m *Migration) Drop(tableNames ...string) error {
-	return m.dropBuilder(false, tableNames...)
+func (m Migration) Drop(tableNames ...string) (query string) {
+	query = m.dropBuilder(false, tableNames...)
+	return
 }
 
 // DropIfExists 會移除指定的資料表格，若指定的資料表格存在的話。
-func (m *Migration) DropIfExists(tableNames ...string) error {
-	return m.dropBuilder(true, tableNames...)
+func (m Migration) DropIfExists(tableNames ...string) (query string) {
+	query = m.dropBuilder(true, tableNames...)
+	return
 }
 
 // setColumnType 會替最後一個欄位設置其資料型態與長度。
-func (m *Migration) setColumnType(dataType string, arg ...interface{}) *Migration {
+func (m Migration) setColumnType(dataType string, arg ...interface{}) Migration {
 	m.columns[len(m.columns)-1].dataType = dataType
 	// 如果有指定長度的話就將其保存。
 	if len(arg) == 1 {
@@ -637,7 +636,7 @@ func (m *Migration) setColumnType(dataType string, arg ...interface{}) *Migratio
 }
 
 // tableBuilder 會建置出主要的資料表格 SQL 執行指令。
-func (m *Migration) tableBuilder() (query string) {
+func (m Migration) tableBuilder() (query string) {
 	var contentQuery string
 	// 建立出不同的 SQL 執行指令。
 	columnQuery := m.columnBuilder()
@@ -692,7 +691,7 @@ func (m *Migration) tableBuilder() (query string) {
 }
 
 // clean 會清空上個遷移資料。
-func (m *Migration) clean() {
+func (m Migration) clean() {
 	m.table.comment = ""
 	m.table.engineType = ""
 	m.table.foreignKeys = []key{}
@@ -704,28 +703,28 @@ func (m *Migration) clean() {
 }
 
 // indexBuilder 會建置移除資料表格的 SQL 執行指令。。
-func (m *Migration) dropBuilder(check bool, tableNames ...string) error {
+func (m Migration) dropBuilder(check bool, tableNames ...string) (query string) {
+	var tables string
 	// 遍歷資料表名稱切片來移除指定的資料表格。
 	for _, name := range tableNames {
-		// 建立 SQL 執行指令來準備移除指定資料表格。
-		query := fmt.Sprintf("DROP TABLE `%s`", name)
-		if check {
-			query = fmt.Sprintf("DROP TABLE IF EXISTS `%s`", name)
-		}
-		_, err := m.connection.exec(query)
-		// 保存最後一次執行的 SQL 指令。
-		m.LastQuery = query
-		// 清除資料、欄位來重新開始一個資料表格遷移系統。
-		m.clean()
-		if err != nil {
-			return err
-		}
+		tables = fmt.Sprintf("`%s`, ", name)
 	}
-	return nil
+	tables = strings.TrimRight(tables, ", ")
+
+	// 建立 SQL 執行指令來準備移除指定資料表格。
+	query = fmt.Sprintf("DROP TABLE %s", tables)
+	if check {
+		query = fmt.Sprintf("DROP TABLE IF EXISTS %s", tables)
+	}
+	// 保存最後一次執行的 SQL 指令。
+	m.LastQuery = query
+	// 清除資料、欄位來重新開始一個資料表格遷移系統。
+	m.clean()
+	return
 }
 
 // indexBuilder 會替資料表格的索引建置相關的 SQL 執行指令。
-func (m *Migration) indexBuilder(indexName string) (query string) {
+func (m Migration) indexBuilder(indexName string) (query string) {
 	var keys []key
 	var targetTable, targetColumns string
 	// 透過指定的型態決定要從哪裡取得索引滋藥。
@@ -785,7 +784,7 @@ func (m *Migration) indexBuilder(indexName string) (query string) {
 }
 
 // columnBuilder 會替資料表格的欄位建置相關的 SQL 執行指令。
-func (m *Migration) columnBuilder() (query string) {
+func (m Migration) columnBuilder() (query string) {
 	for _, v := range m.columns {
 		// 欄位名稱。
 		query += fmt.Sprintf("`%s` ", v.name)
