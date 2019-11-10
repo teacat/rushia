@@ -230,11 +230,6 @@ type key struct {
 	onDelete      string
 }
 
-// newMigration 會基於傳入的資料庫連線來建立一個新的資料表格遷移系統。
-func newMigration() Migration {
-	return Migration{}
-}
-
 // TinyInt 會將最後一個欲建立的欄位資料型態設置為 `tinyint`。
 func (m Migration) TinyInt(length int) Migration {
 	return m.setColumnType("tinyint", length)
