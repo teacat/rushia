@@ -248,6 +248,7 @@ func TestTimestampDate(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users WHERE DAY(FROM_UNIXTIME(CreatedAt)) = ?", query)
 
 	query, _ = builder.Table("Users").Where("CreatedAt", ts.IsWeekday(5)).Get()
+	assertEqual(assert, "SELECT * FROM Users WHERE WEEKDAY(FROM_UNIXTIME(CreatedAt)) = ?", query)
 	query, _ = builder.Table("Users").Where("CreatedAt", ts.IsWeekday("Friday")).Get()
 	assertEqual(assert, "SELECT * FROM Users WHERE WEEKDAY(FROM_UNIXTIME(CreatedAt)) = ?", query)
 }
