@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var builder Builder
+var builder Query
 
 // assertEqual 會將期望的 SQL 指令與實際的 SQL 指令拆分，因為 Reiner 裡有 Map 會導致產生出來的結果每次都不如預期地按照順序排。
 // 拆分後便會比對是否有相同的「字詞」，若短缺則是執行結果不符合預期即報錯。
@@ -39,7 +39,7 @@ func assertEqual(a *assert.Assertions, expected string, actual string) {
 }
 
 func TestMain(t *testing.T) {
-	builder = New()
+	builder = NewQuery()
 }
 
 func TestInsert(t *testing.T) {
@@ -127,6 +127,12 @@ func TestLimitGet(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users LIMIT 10", query)
 }
 
+func TestLimitMultiGet(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Limit(10, 20).Get()
+	assertEqual(assert, "SELECT * FROM Users LIMIT 10, 20", query)
+}
+
 func TestGetColumns(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Get("Username", "Nickname")
@@ -158,6 +164,14 @@ func TestWhere(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("ID", 1).Where("Username", "admin").Get()
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ? AND Username = ?", query)
+}
+
+func TestWhereQuery(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("(ID = ?)", 1).Where("Username", "admin").Get()
+	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ?) AND Username = ?", query)
+	query, _ = builder.Table("Users").Where("(ID = ? OR Password = SHA(?))", 1, "password").Where("Username", "admin").Get()
+	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR Password = SHA(?)) AND Username = ?", query)
 }
 
 func TestWhereHaving(t *testing.T) {
@@ -218,7 +232,7 @@ func TestWhereNull(t *testing.T) {
 
 func TestTimestampDate(t *testing.T) {
 	assert := assert.New(t)
-	ts := builder.Timestamp
+	ts := NewTimestamp()
 	query, _ := builder.Table("Users").Where("CreatedAt", ts.IsDate("2017-07-13")).Get()
 	assertEqual(assert, "SELECT * FROM Users WHERE DATE(FROM_UNIXTIME(CreatedAt)) = ?", query)
 
@@ -240,7 +254,7 @@ func TestTimestampDate(t *testing.T) {
 
 func TestTimestampTime(t *testing.T) {
 	assert := assert.New(t)
-	ts := builder.Timestamp
+	ts := NewTimestamp()
 	query, _ := builder.Table("Users").Where("CreatedAt", ts.IsHour(18)).Get()
 	assertEqual(assert, "SELECT * FROM Users WHERE HOUR(FROM_UNIXTIME(CreatedAt)) = ?", query)
 
@@ -355,16 +369,22 @@ func TestJoinWhere(t *testing.T) {
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID AND Users.Username = ?) RIGHT JOIN Posts ON (Products.TenantID = Posts.TenantID AND Posts.Username = ?)", query)
 }
 
+func TestWithTotalCount(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").WithTotalCount().Get("Username")
+	assertEqual(assert, "SELECT SQL_CALC_FOUND_ROWS Username FROM Users", query)
+}
+
 func TestSubQueryGet(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := builder.SubQuery().Table("Products").Where("Quantity", ">", 2).Get("UserID")
+	subQuery := NewSubQuery().Table("Products").Where("Quantity", ">", 2).Get("UserID")
 	query, _ := builder.Table("Users").Where("ID", "IN", subQuery).Get()
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (SELECT UserID FROM Products WHERE Quantity > ?)", query)
 }
 
 func TestSubQueryInsert(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := builder.SubQuery().Table("Users").Where("ID", 6).Get("Name")
+	subQuery := NewSubQuery().Table("Users").Where("ID", 6).Get("Name")
 	query, _ := builder.Table("Products").Insert(map[string]interface{}{
 		"ProductName": "測試商品",
 		"UserID":      subQuery,
@@ -375,7 +395,7 @@ func TestSubQueryInsert(t *testing.T) {
 
 func TestSubQueryJoin(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := builder.SubQuery("Users").Table("Users").Where("Active", 1).Get()
+	subQuery := NewSubQuery("Users").Table("Users").Where("Active", 1).Get()
 	query, _ := builder.
 		Table("Products").
 		LeftJoin(subQuery, "Products.UserID = Users.ID").
@@ -385,14 +405,38 @@ func TestSubQueryJoin(t *testing.T) {
 
 func TestSubQueryExist(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := builder.SubQuery("Users").Table("Users").Where("Company", "測試公司").Get("UserID")
+	subQuery := NewSubQuery("Users").Table("Users").Where("Company", "測試公司").Get("UserID")
 	query, _ := builder.Table("Products").Where(subQuery, "EXISTS").Get()
 	assertEqual(assert, "SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)", query)
 }
 
 func TestSubQueryRawQuery(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := builder.SubQuery("Users").RawQuery("SELECT UserID FROM Users WHERE Company = ?", "測試公司")
+	subQuery := NewSubQuery("Users").RawQuery("SELECT UserID FROM Users WHERE Company = ?", "測試公司")
 	query, _ := builder.Table("Products").Where(subQuery, "EXISTS").Get()
 	assertEqual(assert, "SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)", query)
+}
+
+func TestLock(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Lock("Users")
+	assertEqual(assert, "LOCK TABLES Users", query)
+}
+
+func TestSetQueryOption(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").SetQueryOption("FOR UPDATE").Get("Username")
+	assertEqual(assert, "SELECT Username FROM Users FOR UPDATE", query)
+}
+
+func TestSetLockMethod(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.SetLockMethod("WRITE").Lock("Users")
+	assertEqual(assert, "LOCK TABLES Users WRITE", query)
+}
+
+func TestUnlock(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Unlock("Users")
+	assertEqual(assert, "UNLOCK TABLES Users", query)
 }
