@@ -43,7 +43,7 @@ func TestMigrationDataTypes(t *testing.T) {
 		Column("test6").Char(1).
 		Column("test7").Varchar(1).
 		Column("test8").Binary(1).
-		Column("test9").VarBinary(1).
+		Column("test9").Varbinary(1).
 		Column("test10").Bit(1).
 		Column("test11").TinyText().
 		Column("test12").Text().

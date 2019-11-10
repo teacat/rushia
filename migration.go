@@ -290,8 +290,8 @@ func (m Migration) Binary(length int) Migration {
 	return m.setColumnType("binary", length)
 }
 
-// VarBinary 會將最後一個欲建立的欄位資料型態設置為 `varbinary`。
-func (m Migration) VarBinary(length int) Migration {
+// Varbinary 會將最後一個欲建立的欄位資料型態設置為 `varbinary`。
+func (m Migration) Varbinary(length int) Migration {
 	return m.setColumnType("varbinary", length)
 }
 
