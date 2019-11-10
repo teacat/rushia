@@ -79,9 +79,9 @@ func TestInsertFunc(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Insert(map[string]interface{}{
 		"Username":  "YamiOdymel",
-		"Password":  builder.Func("SHA1(?)", "secretpassword+salt"),
-		"Expires":   builder.Now("+1Y"),
-		"CreatedAt": builder.Now(),
+		"Password":  NewFunc("SHA1(?)", "secretpassword+salt"),
+		"Expires":   NewNow("+1Y"),
+		"CreatedAt": NewNow(),
 	})
 	assertEqual(assert, "INSERT INTO Users (CreatedAt, Expires, Password, Username) VALUES (NOW(), NOW() + INTERVAL 1 YEAR, SHA1(?), ?)", query)
 }
@@ -92,7 +92,7 @@ func TestOnDuplicateInsert(t *testing.T) {
 	query, _ := builder.Table("Users").OnDuplicate([]string{"UpdatedAt"}, lastInsertID).Insert(map[string]interface{}{
 		"Username":  "YamiOdymel",
 		"Password":  "test",
-		"UpdatedAt": builder.Now(),
+		"UpdatedAt": NewNow(),
 	})
 	assertEqual(assert, "INSERT INTO Users (Password, UpdatedAt, Username) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE ID=LAST_INSERT_ID(ID), UpdatedAt = VALUES(UpdatedAt)", query)
 }
@@ -389,7 +389,7 @@ func TestSubQueryInsert(t *testing.T) {
 	query, _ := builder.Table("Products").Insert(map[string]interface{}{
 		"ProductName": "測試商品",
 		"UserID":      subQuery,
-		"LastUpdated": builder.Now(),
+		"LastUpdated": NewNow(),
 	})
 	assertEqual(assert, "INSERT INTO Products (LastUpdated, ProductName, UserID) VALUES (NOW(), ?, (SELECT Name FROM Users WHERE ID = ?))", query)
 }

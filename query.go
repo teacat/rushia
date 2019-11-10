@@ -680,38 +680,6 @@ func (b Query) JoinOrWhere(table interface{}, args ...interface{}) Query {
 // 輔助函式
 //=======================================================
 
-// Func 會基於參數來返回一個新的 SQL 資料庫函式，
-// 這能夠當作函式放置於查詢指令中，而不會被當作普通的資料執行。
-func (b Query) Func(query string, data ...interface{}) Function {
-	return Function{
-		query:  query,
-		values: data,
-	}
-}
-
-// Now 會回傳一個基於 `INTERVAL` 的 SQL 資料庫函式，
-// 傳入的參數格式可以是 `+1Y`、`-2M`，同時也可以像 `Now("+1Y", "-2M")` 一樣地串連使用。
-// 支援的格式為：`Y`(年)、`M`(月)、`D`(日)、`W`(星期)、`h`(小時)、`m`(分鐘)、`s`(秒數)。
-func (b Query) Now(formats ...string) Function {
-	query := "NOW() "
-	unitMap := map[string]string{
-		"Y": "YEAR",
-		"M": "MONTH",
-		"D": "DAY",
-		"W": "WEEK",
-		"h": "HOUR",
-		"m": "MINUTE",
-		"s": "SECOND",
-	}
-	for _, v := range formats {
-		operator := string(v[0])
-		interval := v[1 : len(v)-1]
-		unit := string(v[len(v)-1])
-		query += fmt.Sprintf("%s INTERVAL %s %s ", operator, interval, unitMap[unit])
-	}
-	return b.Func(strings.TrimSpace(query))
-}
-
 // SetLockMethod 會設置鎖定資料表格的方式（例如：`WRITE`、`READ`）。
 func (b Query) SetLockMethod(method string) Query {
 	b.lockMethod = strings.ToUpper(method)
