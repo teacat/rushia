@@ -121,6 +121,12 @@ func TestGet(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users", query)
 }
 
+func TestOffsetGet(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Offset(10, 20).Get()
+	assertEqual(assert, "SELECT * FROM Users LIMIT 10 OFFSET 20", query)
+}
+
 func TestLimitGet(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Limit(10).Get()

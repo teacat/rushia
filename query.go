@@ -46,6 +46,7 @@ type Query struct {
 	onDuplicateColumns []string
 	lastInsertIDColumn string
 	limit              []int
+	offset             []int
 	orders             []order
 	groupBy            []string
 	lockMethod         string
@@ -223,6 +224,15 @@ func (b Query) buildLimit() (query string) {
 	return
 }
 
+// buildLimit 會建置 `LIMIT OFFSET` 的 SQL 指令。
+func (b Query) buildOffset() (query string) {
+	if len(b.limit) == 0 {
+		return
+	}
+	query = fmt.Sprintf("LIMIT %d OFFSET %d ", b.offset[0], b.offset[1])
+	return
+}
+
 // buildSelect 會建置 `SELECT` 的 SQL 指令。
 func (b Query) buildSelect(columns ...string) (query string) {
 	beforeOptions, _ := b.buildQueryOptions()
@@ -348,6 +358,7 @@ func (b Query) buildQuery() Query {
 	b.query += b.buildOrderBy()
 	b.query += b.buildGroupBy()
 	b.query += b.buildLimit()
+	b.query += b.buildOffset()
 
 	_, afterOptions := b.buildQueryOptions()
 	b.query += afterOptions
@@ -577,6 +588,12 @@ func (b Query) Limit(from int, count ...int) Query {
 	} else {
 		b.limit = []int{from, count[0]}
 	}
+	return b
+}
+
+// Limit 能夠在 SQL 查詢指令中建立限制筆數的條件。
+func (b Query) Offset(count int, offset int) Query {
+	b.offset = []int{count, offset}
 	return b
 }
 
