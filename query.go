@@ -2,6 +2,7 @@ package rushia
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -206,6 +207,10 @@ func (b Query) buildUpdate(data interface{}) (query string) {
 		for column, value := range realData {
 			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
 		}
+	default:
+		b.rangeStruct(realData, func(column string, value interface{}) {
+			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
+		})
 	}
 	query += fmt.Sprintf("%s ", trim(set))
 	return
@@ -418,6 +423,19 @@ func (b Query) buildDuplicate() (query string) {
 	return
 }
 
+// rangeStruct 會遍歷整個結構體的欄位名稱與其值。
+func (b Query) rangeStruct(s interface{}, handler func(column string, value interface{})) {
+	t := reflect.TypeOf(s)
+	v := reflect.ValueOf(s)
+	for i := 0; i < t.NumField(); i++ {
+		if value, ok := t.Field(i).Tag.Lookup("rushia"); ok {
+			handler(value, v.Field(i).Interface())
+		} else {
+			handler(t.Field(i).Name, v.Field(i).Interface())
+		}
+	}
+}
+
 // buildInsert 會建置 `INSERT INTO` 的 SQL 指令。
 func (b Query) buildInsert(operator string, data interface{}) (query string) {
 	var columns, values string
@@ -448,6 +466,13 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 			values += fmt.Sprintf("(%s), ", trim(currentValues))
 		}
 		values = trim(values)
+
+	default:
+		b.rangeStruct(realData, func(column string, value interface{}) {
+			columns += fmt.Sprintf("%s, ", column)
+			values += fmt.Sprintf("%s, ", b.bindParam(value))
+		})
+		values = fmt.Sprintf("(%s)", trim(values))
 	}
 	columns = trim(columns)
 	query = fmt.Sprintf("%s %sINTO %s (%s) VALUES %s ", operator, beforeOptions, b.tableName[0], columns, values)

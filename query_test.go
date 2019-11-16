@@ -42,6 +42,41 @@ func TestMain(t *testing.T) {
 	builder = NewQuery()
 }
 
+func BenchmarkInsertStruct(b *testing.B) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	for i := 0; i < b.N; i++ {
+		builder.Table("Users").Insert(u)
+	}
+}
+
+func BenchmarkInsert(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		builder.Table("Users").Insert(map[string]interface{}{
+			"Username": "YamiOdymel",
+			"Password": "test",
+		})
+	}
+}
+
+func TestInsertStruct(t *testing.T) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Insert(u)
+	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
+}
+
 func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Insert(map[string]interface{}{
@@ -103,6 +138,19 @@ func TestUpdate(t *testing.T) {
 		"Username": "Karisu",
 		"Password": "123456",
 	})
+	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
+}
+
+func TestUpdateStruct(t *testing.T) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Update(u)
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
 }
 
