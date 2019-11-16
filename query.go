@@ -429,6 +429,9 @@ func (b Query) rangeStruct(s interface{}, handler func(column string, value inte
 	v := reflect.ValueOf(s)
 	for i := 0; i < t.NumField(); i++ {
 		if value, ok := t.Field(i).Tag.Lookup("rushia"); ok {
+			if value == "" || value == "-" {
+				continue
+			}
 			handler(value, v.Field(i).Interface())
 		} else {
 			handler(t.Field(i).Name, v.Field(i).Interface())
