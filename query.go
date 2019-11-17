@@ -229,9 +229,9 @@ func (b Query) buildLimit() (query string) {
 	return
 }
 
-// buildLimit 會建置 `LIMIT OFFSET` 的 SQL 指令。
+// buildOffset 會建置 `LIMIT OFFSET` 的 SQL 指令。
 func (b Query) buildOffset() (query string) {
-	if len(b.limit) == 0 {
+	if len(b.offset) < 2 {
 		return
 	}
 	query = fmt.Sprintf("LIMIT %d OFFSET %d ", b.offset[0], b.offset[1])
