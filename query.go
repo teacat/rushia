@@ -531,17 +531,17 @@ func (b Query) Table(tableName ...string) Query {
 // 選擇函式
 //=======================================================
 
-// Get 會取得多列的資料結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
-func (b Query) Get(columns ...string) (query string, params []interface{}) {
+// Select 會取得多列的資料結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
+func (b Query) Select(columns ...string) (query string, params []interface{}) {
 	b.query = b.buildSelect(columns...)
 	query, params = b.runQuery()
 	return
 }
 
-// GetOne 會取得僅單列的資料作為結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
-// 簡單說，這就是 `.Limit(1).Get()` 的縮寫用法。
-func (b Query) GetOne(columns ...string) (query string, params []interface{}) {
-	query, params = b.Limit(1).Get(columns...)
+// SelectOne 會取得僅單列的資料作為結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
+// 簡單說，這就是 `.Limit(1).Select()` 的縮寫用法。
+func (b Query) SelectOne(columns ...string) (query string, params []interface{}) {
+	query, params = b.Limit(1).Select(columns...)
 	return
 }
 
@@ -553,7 +553,7 @@ func (b Query) WithTotalCount() Query {
 
 // Exists 會以 `SELECT EXISTS` 的方式回傳該選擇是否有任何資料傳回，其回傳值為 `1`（有）或 `0`（無）。
 func (b Query) Exists() (query string, params []interface{}) {
-	query, params = b.Get()
+	query, params = b.Select()
 	query = fmt.Sprintf("SELECT EXISTS(%s)", query)
 	return
 }

@@ -19,9 +19,9 @@ func (s SubQuery) Table(tableName ...string) SubQuery {
 // 選擇函式
 //=======================================================
 
-// Get 會取得多列的資料結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
-func (s SubQuery) Get(columns ...string) SubQuery {
-	s.query.query, s.query.params = s.query.Get(columns...)
+// Select 會取得多列的資料結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
+func (s SubQuery) Select(columns ...string) SubQuery {
+	s.query.query, s.query.params = s.query.Select(columns...)
 	return s
 }
 
