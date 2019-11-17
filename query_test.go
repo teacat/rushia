@@ -169,6 +169,27 @@ func TestGet(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users", query)
 }
 
+func TestExists(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Exists()
+	assertEqual(assert, "SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)", query)
+}
+
+func TestSubQueryExists(t *testing.T) {
+	assert := assert.New(t)
+	subQuery := NewSubQuery().Table("Products").Where("Quantity", ">", 2).Get("UserID")
+	query, _ := builder.Table("Users").Where("ID", "IN", subQuery).Exists()
+	assertEqual(assert, "SELECT EXISTS(SELECT * FROM Users WHERE ID IN (SELECT UserID FROM Products WHERE Quantity > ?))", query)
+}
+
+// func TestGetExistsAs(t *testing.T) {
+// 	assert := assert.New(t)
+// 	query, _ := builder.Table("Users").Get("xxx AS exists")
+// 	assertEqual(assert, "SELECT EXISTS(SELECT * FROM Users WHERE Username = ?) AS exists", query)
+//
+// 	// query, _ := builder.Get(NewAs(NewFunc("EXISTS", NewSubQuery().Table("Users").Where("Username", "YamiOdymel").Get()), "exists"))
+// }
+
 func TestOffsetGet(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Offset(10, 20).Get()
@@ -192,6 +213,7 @@ func TestGetColumns(t *testing.T) {
 	query, _ := builder.Table("Users").Get("Username", "Nickname")
 	assertEqual(assert, "SELECT Username, Nickname FROM Users", query)
 
+	// query, _ = builder.Table("Users").Get(NewAs(NewFunc("COUNT", "*"), "Count"))
 	query, _ = builder.Table("Users").Get("COUNT(*) AS Count")
 	assertEqual(assert, "SELECT COUNT(*) AS Count FROM Users", query)
 }
@@ -204,6 +226,7 @@ func TestGetOne(t *testing.T) {
 	query, _ = builder.Table("Users").GetOne()
 	assertEqual(assert, "SELECT * FROM Users LIMIT 1", query)
 
+	// query, _ = builder.Table("Users").Get(NewFunc("SUM", "ID"), NewAs(NewFunc("COUNT", "*"), "Count"))
 	query, _ = builder.Table("Users").Get("SUM(ID)", "COUNT(*) AS Count")
 	assertEqual(assert, "SELECT SUM(ID), COUNT(*) AS Count FROM Users", query)
 }

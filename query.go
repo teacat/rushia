@@ -551,6 +551,13 @@ func (b Query) WithTotalCount() Query {
 	return b.SetQueryOption("SQL_CALC_FOUND_ROWS")
 }
 
+// Exists 會以 `SELECT EXISTS` 的方式回傳該選擇是否有任何資料傳回，其回傳值為 `1`（有）或 `0`（無）。
+func (b Query) Exists() (query string, params []interface{}) {
+	query, params = b.Get()
+	query = fmt.Sprintf("SELECT EXISTS(%s)", query)
+	return
+}
+
 //=======================================================
 // 插入函式
 //=======================================================
