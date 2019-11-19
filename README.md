@@ -1,87 +1,37 @@
-# Reiner [![GoDoc](https://godoc.org/github.com/teacat/rushia?status.svg)](https://godoc.org/github.com/teacat/rushia) [![Coverage Status](https://coveralls.io/repos/github/teacat/rushia/badge.svg?branch=master)](https://coveralls.io/github/teacat/rushia?branch=master) [![Build Status](https://travis-ci.org/teacat/rushia.svg?branch=master)](https://travis-ci.org/teacat/rushia) [![Go Report Card](https://goreportcard.com/badge/github.com/teacat/rushia)](https://goreportcard.com/report/github.com/teacat/rushia)
+# Rushia [![GoDoc](https://godoc.org/github.com/teacat/rushia?status.svg)](https://godoc.org/github.com/teacat/rushia) [![Coverage Status](https://coveralls.io/repos/github/teacat/rushia/badge.svg?branch=master)](https://coveralls.io/github/teacat/rushia?branch=master) [![Build Status](https://travis-ci.org/teacat/rushia.svg?branch=master)](https://travis-ci.org/teacat/rushia) [![Go Report Card](https://goreportcard.com/badge/github.com/teacat/rushia)](https://goreportcard.com/report/github.com/teacat/rushia)
+
+# // WIP DOCS 尚未完成文件 //
+# // WIP DOCS 尚未完成文件 //
 
 一個由 [Golang](https://golang.org/) 撰寫且比起部分 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) 還要讚的 [MySQL](https://www.mysql.com/) 指令建置函式庫。彈性高、不需要建構體標籤。實際上，這就只是 [PHP-MySQLi-Database-Class](https://github.com/joshcam/PHP-MySQLi-Database-Class) 不過是用在 [Golang](https://golang.org/) 而已（但還是多了些功能）。
 
+這是一個 SQL 指令建構庫，本身不帶有任何 SQL 連線，適合用於某些套件的基底。
+
 # 這是什麼？
 
-萊納是一個由 [Golang](https://golang.org/) 撰寫的 [MySQL](https://www.mysql.com/) 的指令建置函式庫（不是 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84)，永遠也不會是），幾乎所有東西都能操控於你手中。類似自己撰寫資料庫指令但是更簡單，JOIN 表格也變得比以前更方便了。
+露西婭是一個由 [Golang](https://golang.org/) 撰寫的 [MySQL](https://www.mysql.com/) 的指令建置函式庫（不是 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84)，永遠也不會是），幾乎所有東西都能操控於你手中。類似自己撰寫資料庫指令但是更簡單，JOIN 表格也變得比以前更方便了。
 
 * 幾乎全功能的函式庫。
 * 自動避免於 Goroutine 發生資料競爭的設計。
-* 支援 MySQL 複寫橫向擴展機制（區分讀／寫連線）。
 * 容易理解與記住、且使用方式十分簡單。
 * SQL 指令建構函式。
 * 資料庫表格建構協助函式。
 * 可串連的使用方式。
 * 支援子指令（Sub Query）。
-* 支援多樣的結果物件綁定（如：建構體切片）。
-* 可手動操作的交易機制（Transaction）和回溯（Rollback）功能。
 * 透過預置聲明（[Prepared Statement](https://en.wikipedia.org/wiki/Prepared_statement)），99.9% 避免 SQL 注入攻擊。
 
 # 為什麼？
 
-[Gorm](https://github.com/jinzhu/gorm) 已經是 [Golang](https://golang.org/) 裡的 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) 典範，但實際上要操作複雜與關聯性高的 SQL 指令時並不是很合適，而 Reiner 解決了這個問題。Reiner 也試圖不要和建構體扯上關係，不希望使用者需要手動指定任何標籤在建構體中。
-
-# 執行緒與併發安全性？
-
-我們都知道 [Golang](https://golang.org/) 的目標就是併發程式，為了避免 Goroutine 導致資料競爭問題，Reiner 會在每有變更的時候自動複製 SQL 指令建置函式庫來避免所有併發程式共用同個 SQL 指令建置函式庫（此方式並不會使資料庫連線遞增而造成效能問題）。
-
-在原先的舊版本中則需要手動透過 `Copy` 或 `Clone` 複製建置函式庫，這繁雜的手續正是重新設計的原因。但也因為如此，現在 SQL 指令建置函式若需要分散串接則需要重新地不斷賦值，簡單來說就是像這樣。
-
-```go
-package main
-
-func main() {
-	db, _ := reiner.New("...")
-
-	// 在舊有的版本中原本能夠這樣直覺地分散串接一段 SQL 指令。
-	// 注意！這是舊版本的做法，目前已經被廢除。
-	db.Table("Users")
-	if ... {
-		db.Where("Username", "YamiOdymel")
-	}
-	if ... {
-		db.Limit(1, 10)
-	}
-	db.Get()
-
-	// 新的版本中因為 Reiner 會不斷地回傳一個新的建置資料函式，
-	// 因此必須不斷地重新賦值。
-	myDB := db.Table("Users")
-	if ... {
-		myDB = myDB.Where("Username", "YamiOdymel")
-	}
-	if ... {
-		myDB = myDB.Limit(1, 10)
-	}
-	myDB, _ = myDB.Get()
-}
-```
+[Gorm](https://github.com/jinzhu/gorm) 已經是 [Golang](https://golang.org/) 裡的 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) 典範，但實際上要操作複雜與關聯性高的 SQL 指令時並不是很合適，而 Rushia 解決了這個問題。Rushia 也試圖不要和建構體扯上關係，不希望使用者需要手動指定任何標籤在建構體中。
 
 # 效能如何？
 
-這裡有份簡略化的[效能測試報表](https://github.com/teacat/reiner-benchmark)。目前仍會持續優化並且增加快取以避免重複建置相同指令而費時。
+這裡有份簡略化的[效能測試報表](#!)。目前仍會持續優化並且增加快取以避免重複建置相同指令而費時。
 
 ```
 測試規格：
-1.7 GHz Intel Core i7 (4650U)
-8 GB 1600 MHz DDR3
-
-插入：Dbr > SQL > SQLx > Xorm > Reiner > Gorm
-BenchmarkReinerInsert-4             3000            571298 ns/op            1719 B/op         49 allocs/op
-BenchmarkSQLInsert-4                3000            429340 ns/op             901 B/op         17 allocs/op
-BenchmarkDbrInsert-4                5000            413442 ns/op            2210 B/op         37 allocs/op
-BenchmarkSQLxInsert-4               3000            444055 ns/op             902 B/op         17 allocs/op
-BenchmarkGormInsert-4               2000            776838 ns/op            5319 B/op        101 allocs/op
-BenchmarkXormInsert-4               3000            562341 ns/op            2921 B/op         64 allocs/op
-
-選擇 100 筆資料：SQL > SQLx > Dbr > Reiner > Gorm > Xorm
-BenchmarkReinerSelect100-4          2000            659189 ns/op           42907 B/op       1155 allocs/op
-BenchmarkSQLSelect100-4             5000            336121 ns/op           28864 B/op        723 allocs/op
-BenchmarkDbrSelect100-4             3000            529430 ns/op           87496 B/op       1638 allocs/op
-BenchmarkSQLxSelect100-4            3000            376810 ns/op           32368 B/op        829 allocs/op
-BenchmarkGormSelect100-4            2000            726107 ns/op          209236 B/op       3870 allocs/op
-BenchmarkXormSelect100-4            2000            868688 ns/op          103358 B/op       4583 allocs/op
+2.2 GHz Intel Core i7 (8750H)
+32 GB 2667 MHz DDR4
 ```
 
 # 索引
@@ -156,98 +106,24 @@ BenchmarkXormSelect100-4            2000            868688 ns/op          103358
 打開終端機並且透過 `go get` 安裝此套件即可。
 
 ```bash
-$ go get gopkg.in/teacat/reiner.v2
+$ go get gopkg.in/teacat/rushia.v1
 ```
 
 # 命名建議
 
-在 Reiner 中為了配合 [Golang](https://golang.org/) 程式命名規範，我們建議你將所有事情以[駝峰式大小寫](https://zh.wikipedia.org/zh-tw/%E9%A7%9D%E5%B3%B0%E5%BC%8F%E5%A4%A7%E5%B0%8F%E5%AF%AB)命名，因為這能夠確保兩邊的風格相同。事實上，甚至連資料庫內的表格名稱、欄位名稱都該這麼做。當遇上 `ip`、`id`、`url` 時，請遵循 Golang 的命名方式皆以大寫使用，如 `AddrIP`、`UserID`、`PhotoURL`，而不是 `AddrIp`、`UserId`、`PhotoUrl`。
+在 Rushia 中為了配合 [Golang](https://golang.org/) 程式命名規範，我們建議你將所有事情以[駝峰式大小寫](https://zh.wikipedia.org/zh-tw/%E9%A7%9D%E5%B3%B0%E5%BC%8F%E5%A4%A7%E5%B0%8F%E5%AF%AB)命名，因為這能夠確保兩邊的風格相同。事實上，甚至連資料庫內的表格名稱、欄位名稱都該這麼做。當遇上 `ip`、`id`、`url` 時，請遵循 Golang 的命名方式皆以大寫使用，如 `AddrIP`、`UserID`、`PhotoURL`，而不是 `AddrIp`、`UserId`、`PhotoUrl`。
 
 # NULL 值
 
-在 Golang 裏處理資料庫的 NULL 值向來都不是很方便，因此不建議允許資料庫中可有 NULL 欄位。基於 Reiner 底層的 [`go-sql-driver/mysql`](https://github.com/go-sql-driver/mysql) 因素，Reiner 並不會將接收到的 NULL 值轉換成指定型態的零值（Zero Value），這意味著當你從資料庫中取得一個可能為 NULL 值的字串，你必須透過 `*string` 或者 `sql.NullString` 而非普通的 `string` 型態（會發生 Scan 錯誤），實際用法像這樣。
-
-```go
-type User struct {
-	Username string
-	Nickname sql.NullString
-	Age 	 sql.NullInt64
-}
-
-// 然後綁定這個建構體到資料庫結果。
-var u User
-db.Table("Users").Bind(&u).GetOne()
-
-// 輸出取得的結果。
-if !u.Nickname.Valid() {
-	panic("Nickname 的內容是 NULL！不可饒恕！")
-}
-fmt.Println(u.Nickname.Value)
-```
+在 Golang 裏處理資料庫的 NULL 值向來都不是很方便，因此不建議允許資料庫中可有 NULL 欄位。
 
 # 使用方式
 
-Reiner 的使用方式十分直覺與簡易，類似基本的 SQL 指令集但是更加地簡化了。
-
-## 資料庫連線
-
-首先你需要透過函式來將 Reiner 連上資料庫，如此一來才能夠初始化建置函式庫與相關的資料庫表格建構函式。一個最基本的單資料庫連線，讀寫都將透過此連線，連線字串共用於其它套件是基於 DSN（[Data Source Name](https://en.wikipedia.org/wiki/Data_source_name)）。
-
-```go
-import "github.com/teacat/reiner"
-
-db, err := reiner.New("root:root@/test?charset=utf8")
-if err != nil {
-    panic(err)
-}
-```
-
-### 水平擴展（讀／寫分離）
-
-這種方式可以有好幾個主要資料庫、副從資料庫，這意味著寫入時都會流向到主要資料庫，而讀取時都會向副從資料庫請求。這很適合用在大型結構還有水平擴展上。當你有多個資料庫來源時，Reiner 會逐一遞詢每個資料庫來源，英文稱其為 [Round Robin](https://zh.wikipedia.org/zh-tw/%E5%BE%AA%E7%92%B0%E5%88%B6)，也就是每個資料庫都會輪流呼叫而避免單個資料庫負荷過重，也不會有隨機呼叫的事情發生。
-
-```go
-import "github.com/teacat/reiner"
-
-db, err := reiner.New("root:root@/master?charset=utf8", []string{
-	"root:root@/slave?charset=utf8",
-	"root:root@/slave2?charset=utf8",
-	"root:root@/slave3?charset=utf8",
-})
-if err != nil {
-    panic(err)
-}
-```
-
-### SQL 建構模式
-
-如果你已經有喜好的 SQL 資料庫處理套件，那麼你就可以在建立 Reiner 時不要傳入任何資料，這會使 Reiner 避免與資料庫互動，透過這個設計你可以將 Reiner 作為你的 SQL 指令建構函式。
-
-```go
-// 當沒有傳入 MySQL 連線資料時，Reiner 僅會建置 SQL 執行指令而非與資料庫有實際互動。
-builder, _ := reiner.New()
-// 然後像這樣透過 Reiner 建立執行指令。
-myQuery, _ := builder.Table("Users").Where("Username", "YamiOdymel").Get()
-
-// 透過 `Query` 取得 Reiner 所建立的 Query 當作欲執行的資料庫指令。
-sql.Prepare(myQuery.Query())
-// 接著展開 `Params` 即是我們在 Reiner 中存放的值。
-sql.Exec(myQuery.Params()...)
-// 等效於：SELECT * FROM Users WHERE Username = ?
-```
-
-## 資料綁定與處理
-
-Reiner 允許你將查詢結果映射到結構體切片或結構體。
-
-```go
-var user []*User
-db.Bind(&user).Table("Users").Get()
-```
+Rushia 的使用方式十分直覺與簡易，類似基本的 SQL 指令集但是更加地簡化了。
 
 ## 插入
 
-透過 Reiner 你可以很輕鬆地透過建構體或是 map 來插入一筆資料。這是最傳統的插入方式，若該表格有自動遞增的編號欄位，插入後你就能透過 `LastInsertID` 獲得最後一次插入的編號。
+透過 Rushia 你可以很輕鬆地透過建構體或是 map 來插入一筆資料。這是最傳統的插入方式，若該表格有自動遞增的編號欄位，插入後你就能透過 `LastInsertID` 獲得最後一次插入的編號。
 
 ```go
 db.Table("Users").Insert(map[string]interface{}{
@@ -271,7 +147,7 @@ db.Table("Users").Replace(map[string]interface{}{
 
 ### 函式
 
-插入時你可以透過 Reiner 提供的函式來執行像是 `SHA1()` 或者取得目前時間的 `NOW()`，甚至將目前時間加上一年⋯等。
+插入時你可以透過 Rushia 提供的函式來執行像是 `SHA1()` 或者取得目前時間的 `NOW()`，甚至將目前時間加上一年⋯等。
 
 ```go
 db.Table("Users").Insert(map[string]interface{}{
@@ -285,7 +161,7 @@ db.Table("Users").Insert(map[string]interface{}{
 
 ### 當重複時
 
-Reiner 支援了插入資料若重複時可以更新該筆資料的指定欄位>這類似「覆蓋」，但這並不會先刪除原先的資料，這種方式僅會在插入時檢查是否重複，若重複則更新該筆資料。
+Rushia 支援了插入資料若重複時可以更新該筆資料的指定欄位>這類似「覆蓋」，但這並不會先刪除原先的資料，這種方式僅會在插入時檢查是否重複，若重複則更新該筆資料。
 
 ```go
 lastInsertID := "ID"
@@ -299,7 +175,7 @@ db.Table("Users").OnDuplicate([]string{"UpdatedAt"}, lastInsertID).Insert(map[st
 
 ### 多筆資料
 
-Reiner 允許你透過 `InsertMulti` 同時間插入多筆資料（單指令插入多筆資料），這省去了透過迴圈不斷執行單筆插入的困擾，這種方式亦大幅度提升了效能。
+Rushia 允許你透過 `InsertMulti` 同時間插入多筆資料（單指令插入多筆資料），這省去了透過迴圈不斷執行單筆插入的困擾，這種方式亦大幅度提升了效能。
 
 ```go
 data := []map[string]interface{}{
@@ -326,7 +202,7 @@ db.Table("Users").Limit(10).Update(data)
 
 ## 更新
 
-更新一筆資料在 Reiner 中極為簡單，你只需要指定表格名稱還有資料即可。
+更新一筆資料在 Rushia 中極為簡單，你只需要指定表格名稱還有資料即可。
 
 ```go
 db.Table("Users").Where("Username", "YamiOdymel").Update(map[string]interface{}{
@@ -338,7 +214,7 @@ db.Table("Users").Where("Username", "YamiOdymel").Update(map[string]interface{}{
 
 ## 選擇與取得
 
-最基本的選擇在 Reiner 中稱之為 `Get` 而不是 `Select`。
+最基本的選擇在 Rushia 中稱之為 `Get` 而不是 `Select`。
 
 ```go
 db.Table("Users").Get()
@@ -399,7 +275,7 @@ db.Bind(&i).Table("Users").GetValue("COUNT(*)")
 
 ### 分頁功能
 
-分頁就像是取得資料ㄧ樣，但更擅長用於多筆資料、不會一次顯示完畢的內容。Reiner 能夠幫你自動處理換頁功能，讓你不需要自行計算換頁時的筆數應該從何開始。為此，你需要定義兩個變數，一個是目前的頁數，另一個是單頁能有幾筆資料。
+分頁就像是取得資料ㄧ樣，但更擅長用於多筆資料、不會一次顯示完畢的內容。Rushia 能夠幫你自動處理換頁功能，讓你不需要自行計算換頁時的筆數應該從何開始。為此，你需要定義兩個變數，一個是目前的頁數，另一個是單頁能有幾筆資料。
 
 ```go
 // 目前的頁數。
@@ -414,7 +290,7 @@ fmt.Println("目前頁數為 %d，共有 %d 頁", page, db.TotalPages)
 
 ## 執行生指令
 
-Reiner 已經提供了近乎日常中 80% 會用到的方式，但如果好死不死你想使用的功能在那 20% 之中，我們還提供了原生的方法能讓你直接輸入 SQL 指令執行自己想要的鳥東西。一個最基本的生指令（Raw Query）就像這樣。
+Rushia 已經提供了近乎日常中 80% 會用到的方式，但如果好死不死你想使用的功能在那 20% 之中，我們還提供了原生的方法能讓你直接輸入 SQL 指令執行自己想要的鳥東西。一個最基本的生指令（Raw Query）就像這樣。
 
 其中亦能帶有預置聲明（Prepared Statement），也就是指令中的問號符號替代了原本的值。這能避免你的 SQL 指令遭受注入攻擊。
 
@@ -480,7 +356,7 @@ db.RawQuery(query, params...)
 
 ## 條件宣告
 
-透過 Reiner 宣告 `WHERE` 條件也能夠很輕鬆。一個最基本的 `WHERE AND` 像這樣使用。
+透過 Rushia 宣告 `WHERE` 條件也能夠很輕鬆。一個最基本的 `WHERE AND` 像這樣使用。
 
 ```go
 db.Table("Users").Where("ID", 1).Where("Username", "admin").Get()
@@ -569,9 +445,9 @@ db.Table("Users").Where("LastName", "IS", nil).Get()
 
 ### 時間戳
 
-[Unix Timestamp](https://en.wikipedia.org/wiki/Unix_time) 是一項將日期與時間秒數換算成數字的格式（範例：`1498001308`），這令你能夠輕易地換算其秒數，但當你要判斷時間是否為某一年、月、日，甚至範圍的時候就會有些許困難，而 Reiner 也替你想到了這一點。
+[Unix Timestamp](https://en.wikipedia.org/wiki/Unix_time) 是一項將日期與時間秒數換算成數字的格式（範例：`1498001308`），這令你能夠輕易地換算其秒數，但當你要判斷時間是否為某一年、月、日，甚至範圍的時候就會有些許困難，而 Rushia 也替你想到了這一點。
 
-需要注意的是 Reiner 中的 `Timestamp` 工具無法串聯使用，這意味著當你想要確認時間戳是否為某年某月時，你需要有兩個 `Where` 條件，而不行使用 `IsYear().IsMonth()`。更多的用法可以在原生文件中找到，這裡僅列出不完全的範例供大略參考。
+需要注意的是 Rushia 中的 `Timestamp` 工具無法串聯使用，這意味著當你想要確認時間戳是否為某年某月時，你需要有兩個 `Where` 條件，而不行使用 `IsYear().IsMonth()`。更多的用法可以在原生文件中找到，這裡僅列出不完全的範例供大略參考。
 
 #### 日期
 
@@ -651,7 +527,7 @@ if count := db.Count(); err == nil && count != 0 {
 
 ## 排序
 
-Reiner 亦支援排序功能，如遞增或遞減，亦能擺放函式。
+Rushia 亦支援排序功能，如遞增或遞減，亦能擺放函式。
 
 ```go
 db.Table("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()").Get()
@@ -678,7 +554,7 @@ db.Table("Users").GroupBy("Name").Get()
 
 ## 加入
 
-Reiner 支援多種表格加入方式，如：`InnerJoin`、`LeftJoin`、`RightJoin`、`NaturalJoin`、`CrossJoin`。
+Rushia 支援多種表格加入方式，如：`InnerJoin`、`LeftJoin`、`RightJoin`、`NaturalJoin`、`CrossJoin`。
 
 ```go
 db.
@@ -704,7 +580,7 @@ db.
 
 ## 子指令
 
-Reiner 支援複雜的子指令，欲要建立一個子指令請透過 `SubQuery` 函式，這將會建立一個不能被執行的資料庫建置函式庫，令你可以透過 `Get`、`Update` 等建立相關 SQL 指令，但不會被資料庫執行。將其帶入到一個正常的資料庫函式中即可成為子指令。
+Rushia 支援複雜的子指令，欲要建立一個子指令請透過 `SubQuery` 函式，這將會建立一個不能被執行的資料庫建置函式庫，令你可以透過 `Get`、`Update` 等建立相關 SQL 指令，但不會被資料庫執行。將其帶入到一個正常的資料庫函式中即可成為子指令。
 
 ```go
 subQuery := db.SubQuery().Table("Users").Get()
@@ -777,7 +653,7 @@ if has {
 
 ## 輔助函式
 
-Reiner 有提供一些輔助用的函式協助你除錯、紀錄，或者更加地得心應手。
+Rushia 有提供一些輔助用的函式協助你除錯、紀錄，或者更加地得心應手。
 
 ### 資料庫連線
 
@@ -899,7 +775,7 @@ db.Table("Users", "Logs").SetLockMethod("READ").Lock()
 
 ## 指令關鍵字
 
-Reiner 也支援設置指令關鍵字。
+Rushia 也支援設置指令關鍵字。
 
 ```go
 db.Table("Users").SetQueryOption("LOW_PRIORITY").Insert(data)
@@ -936,7 +812,7 @@ fmt.Printf("%+v", db.Traces[0])
 
 # 表格建構函式
 
-Reiner 除了基本的資料庫函式可供使用外，還能夠建立一個表格並且規劃其索引、外鍵、型態。
+Rushia 除了基本的資料庫函式可供使用外，還能夠建立一個表格並且規劃其索引、外鍵、型態。
 
 ```go
 migration := db.Migration()
@@ -944,7 +820,6 @@ migration := db.Migration()
 migration.Table("Users").Column("Username").Varchar(32).Primary().Create()
 // 等效於：CREATE TABLE Users (Username VARCHAR(32) NOT NULL PRIMARY KEY) ENGINE=INNODB
 ```
-
 
 | 數值       | 字串       | 二進制     | 檔案資料     | 時間      | 浮點數     | 固組   |
 |-----------|------------|-----------|------------|-----------|-----------|-------|
@@ -957,7 +832,7 @@ migration.Table("Users").Column("Username").Varchar(32).Primary().Create()
 
 # 相關連結
 
-這裡是 Reiner 受啟發，或是和資料庫有所關聯的連結。
+這裡是 Rushia 受啟發，或是和資料庫有所關聯的連結。
 
 * [kisielk/sqlstruct](http://godoc.org/github.com/kisielk/sqlstruct)
 * [jmoiron/sqlx](https://github.com/jmoiron/sqlx)
