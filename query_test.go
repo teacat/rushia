@@ -101,6 +101,43 @@ func TestInsertMulti(t *testing.T) {
 	assertEqual(assert, "INSERT INTO Users (Password, Username) VALUES (?, ?), (?, ?)", query)
 }
 
+func TestInsertStructOmit(t *testing.T) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Omit("Username").Insert(u)
+	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+}
+
+func TestInsertOmit(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Omit("Username").Insert(map[string]interface{}{
+		"Username": "YamiOdymel",
+		"Password": "test",
+	})
+	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+}
+
+func TestInsertMultiOmit(t *testing.T) {
+	assert := assert.New(t)
+	data := []map[string]interface{}{
+		{
+			"Username": "YamiOdymel",
+			"Password": "test",
+		}, {
+			"Username": "Karisu",
+			"Password": "12345",
+		},
+	}
+	query, _ := builder.Table("Users").Omit("Username").InsertMulti(data)
+	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?), (?)", query)
+}
+
 func TestReplace(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Replace(map[string]interface{}{
@@ -132,6 +169,28 @@ func TestOnDuplicateInsert(t *testing.T) {
 	assertEqual(assert, "INSERT INTO Users (Password, UpdatedAt, Username) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE ID=LAST_INSERT_ID(ID), UpdatedAt = VALUES(UpdatedAt)", query)
 }
 
+func TestUpdateOmit(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Omit("Username").Update(map[string]interface{}{
+		"Username": "Karisu",
+		"Password": "123456",
+	})
+	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+}
+
+func TestUpdateOmitStruct(t *testing.T) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Omit("Username").Update(u)
+	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+}
+
 func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Update(map[string]interface{}{
@@ -152,6 +211,28 @@ func TestUpdateStruct(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Update(u)
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
+}
+
+func TestPatch(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
+		"Username": "",
+		"Password": "123456",
+	})
+	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+}
+
+func TestPatchStruct(t *testing.T) {
+	u := struct {
+		Username string
+		Password string
+	}{
+		Username: "",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Patch(u)
+	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
 }
 
 func TestLimitUpdate(t *testing.T) {

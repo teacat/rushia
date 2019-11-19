@@ -53,6 +53,7 @@ type Query struct {
 	lockMethod         string
 	query              string
 	params             []interface{}
+	omits              []string
 }
 
 //=======================================================
@@ -197,7 +198,7 @@ func (b Query) buildWhere(typ string) (query string) {
 }
 
 // buildUpdate 會建置 `UPDATE` 的 SQL 指令。
-func (b Query) buildUpdate(data interface{}) (query string) {
+func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string) {
 	var set string
 	beforeOptions, _ := b.buildQueryOptions()
 	query = fmt.Sprintf("UPDATE %s%s SET ", beforeOptions, b.tableName[0])
@@ -205,10 +206,22 @@ func (b Query) buildUpdate(data interface{}) (query string) {
 	switch realData := data.(type) {
 	case map[string]interface{}:
 		for column, value := range realData {
+			if b.isOmitted(column) {
+				continue
+			}
+			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
+				continue
+			}
 			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
 		}
 	default:
 		b.rangeStruct(realData, func(column string, value interface{}) {
+			if b.isOmitted(column) {
+				return
+			}
+			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
+				return
+			}
 			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
 		})
 	}
@@ -439,6 +452,16 @@ func (b Query) rangeStruct(s interface{}, handler func(column string, value inte
 	}
 }
 
+// isOmitted 會回傳指定欄位是否被指定為忽略。
+func (b Query) isOmitted(field string) bool {
+	for _, v := range b.omits {
+		if v == field {
+			return true
+		}
+	}
+	return false
+}
+
 // buildInsert 會建置 `INSERT INTO` 的 SQL 指令。
 func (b Query) buildInsert(operator string, data interface{}) (query string) {
 	var columns, values string
@@ -448,6 +471,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 	switch realData := data.(type) {
 	case map[string]interface{}:
 		for column, value := range realData {
+			if b.isOmitted(column) {
+				continue
+			}
 			columns += fmt.Sprintf("%s, ", column)
 			values += fmt.Sprintf("%s, ", b.bindParam(value))
 		}
@@ -457,6 +483,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 		var columnNames []string
 		// 先取得欄位的名稱，這樣才能照順序遍歷整個 `map`。
 		for name := range realData[0] {
+			if b.isOmitted(name) {
+				continue
+			}
 			columnNames = append(columnNames, name)
 			// 先建置欄位名稱的 SQL 指令片段。
 			columns += fmt.Sprintf("%s, ", name)
@@ -472,6 +501,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 
 	default:
 		b.rangeStruct(realData, func(column string, value interface{}) {
+			if b.isOmitted(column) {
+				return
+			}
 			columns += fmt.Sprintf("%s, ", column)
 			values += fmt.Sprintf("%s, ", b.bindParam(value))
 		})
@@ -598,7 +630,14 @@ func (b Query) Replace(data interface{}) (query string, params []interface{}) {
 
 // Update 會以指定的資料來更新相對應的資料列。
 func (b Query) Update(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildUpdate(data)
+	b.query = b.buildUpdate(data, false)
+	query, params = b.runQuery()
+	return
+}
+
+// Patch 會以片段更新的方式處理傳入的資料，任何零值會被忽略而不納入更新範圍。
+func (b Query) Patch(data interface{}) (query string, params []interface{}) {
+	b.query = b.buildUpdate(data, true)
 	query, params = b.runQuery()
 	return
 }
@@ -616,6 +655,12 @@ func (b Query) OnDuplicate(columns []string, lastInsertID ...string) Query {
 // 限制函式
 //=======================================================
 
+// Omit 會省略執行時的某些欄位。
+func (b Query) Omit(columns ...string) Query {
+	b.omits = columns
+	return b
+}
+
 // Limit 能夠在 SQL 查詢指令中建立限制筆數的條件。
 func (b Query) Limit(from int, count ...int) Query {
 	if len(count) == 0 {
@@ -626,7 +671,7 @@ func (b Query) Limit(from int, count ...int) Query {
 	return b
 }
 
-// Limit 能夠在 SQL 查詢指令中建立限制筆數的條件。
+// Offset 能夠在 SQL 查詢指令中建立限制筆數的條件。
 func (b Query) Offset(count int, offset int) Query {
 	b.offset = []int{count, offset}
 	return b
