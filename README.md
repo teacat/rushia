@@ -1,8 +1,5 @@
 # Rushia [![GoDoc](https://godoc.org/github.com/teacat/rushia?status.svg)](https://godoc.org/github.com/teacat/rushia) [![Coverage Status](https://coveralls.io/repos/github/teacat/rushia/badge.svg?branch=master)](https://coveralls.io/github/teacat/rushia?branch=master) [![Build Status](https://travis-ci.org/teacat/rushia.svg?branch=master)](https://travis-ci.org/teacat/rushia) [![Go Report Card](https://goreportcard.com/badge/github.com/teacat/rushia)](https://goreportcard.com/report/github.com/teacat/rushia)
 
-# // WIP DOCS 尚未完成文件 //
-# // WIP DOCS 尚未完成文件 //
-
 一個由 [Golang](https://golang.org/) 撰寫且比起部分 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) 還要讚的 [MySQL](https://www.mysql.com/) 指令建置函式庫。彈性高、不需要建構體標籤。實際上，這就只是 [PHP-MySQLi-Database-Class](https://github.com/joshcam/PHP-MySQLi-Database-Class) 不過是用在 [Golang](https://golang.org/) 而已（但還是多了些功能）。
 
 這是一個 SQL 指令建構庫，本身不帶有任何 SQL 連線，適合用於某些套件的基底。
@@ -16,6 +13,7 @@
 * 容易理解與記住、且使用方式十分簡單。
 * SQL 指令建構函式。
 * 資料庫表格建構協助函式。
+* 彈性的建構體映射。
 * 可串連的使用方式。
 * 支援子指令（Sub Query）。
 * 透過預置聲明（[Prepared Statement](https://en.wikipedia.org/wiki/Prepared_statement)），99.9% 避免 SQL 注入攻擊。
@@ -24,44 +22,27 @@
 
 [Gorm](https://github.com/jinzhu/gorm) 已經是 [Golang](https://golang.org/) 裡的 [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) 典範，但實際上要操作複雜與關聯性高的 SQL 指令時並不是很合適，而 Rushia 解決了這個問題。Rushia 也試圖不要和建構體扯上關係，不希望使用者需要手動指定任何標籤在建構體中。
 
-# 效能如何？
-
-這裡有份簡略化的[效能測試報表](#!)。目前仍會持續優化並且增加快取以避免重複建置相同指令而費時。
-
-```
-測試規格：
-2.2 GHz Intel Core i7 (8750H)
-32 GB 2667 MHz DDR4
-```
-
 # 索引
 
 * [安裝方式](#安裝方式)
 * [命名建議](#命名建議)
 * [NULL 值](#null-值)
 * [使用方式](#使用方式)
-    * [資料庫連線](#資料庫連線)
-    	* [水平擴展（讀／寫分離）](#水平擴展讀寫分離)
-		* [SQL 建構模式](#sql-建構模式)
-	* [資料綁定與處理](#資料綁定與處理)
-		* [逐行掃描](#逐行掃描)
+    * [映射](#映射)
+    	* [省略](#省略)
 	* [插入](#插入)
 		* [覆蓋](#覆蓋)
 		* [函式](#函式)
 		* [當重複時](#當重複時)
 		* [多筆資料](#多筆資料)
-			* [省略重複鍵名](#省略重複鍵名)
 	* [筆數限制](#筆數限制)
+	* [筆數偏移](#筆數偏移)
 	* [更新](#更新)
+		* [片段更新](#片段更新)
 	* [選擇與取得](#選擇與取得)
-		* [筆數限制](#筆數限制-1)
 		* [指定欄位](#指定欄位)
 		* [單行資料](#單行資料)
-		* [單欄位值](#單欄位值)
-		* [分頁功能](#分頁功能)
 	* [執行生指令](#執行生指令)
-		* [單行資料](#單行資料-1)
-		* [單欄位值](#單欄位值-1)
 		* [進階方式](#進階方式)
 	* [條件宣告](#條件宣告)
 		* [擁有](#擁有)
@@ -88,14 +69,8 @@
 		* [插入](#插入-1)
 		* [加入](#加入-1)
 		* [存在／不存在](#存在不存在)
-	* [是否擁有該筆資料](#是否擁有該筆資料)
 	* [輔助函式](#輔助函式)
-		* [資料庫連線](#資料庫連線)
-		* [最後執行的 SQL 指令](#最後執行的-sql-指令)
-		* [結果／影響的行數](#結果影響的行數)
-		* [最後插入的編號](#最後插入的編號)
 		* [總筆數](#總筆數)
-	* [交易函式](#交易函式)
 	* [鎖定表格](#鎖定表格)
 	* [指令關鍵字](#指令關鍵字)
 		* [多個選項](#多個選項)
@@ -121,9 +96,43 @@ $ go get gopkg.in/teacat/rushia.v1
 
 Rushia 的使用方式十分直覺與簡易，類似基本的 SQL 指令集但是更加地簡化了。
 
+## 映射
+
+你能夠直接將一個建構體傳入 `Insert` 或是 `Update` 之中，其欄位名稱與值都會被自動轉換 (注意！這並不會轉換成 MySQL 最常用的 `snake_case`！)。
+
+```go
+type User struct {
+	Username string
+	Password string
+}
+u := User{
+	Username: "YamiOdymel",
+	Password: "test",
+}
+db.Table("Users").Insert(u)
+// 等效於：INSERT INTO Users (Username, Password) VALUES (?, ?)
+```
+
+### 省略
+
+透過 `Omit`，你可以省略建構體中的某些欄位。
+
+```go
+type User struct {
+	Username string
+	Password string
+}
+u := User{
+	Username: "YamiOdymel",
+	Password: "test",
+}
+db.Table("Users").Omit("Username").Insert(u)
+// 等效於：INSERT INTO Users (Password) VALUES (?)
+```
+
 ## 插入
 
-透過 Rushia 你可以很輕鬆地透過建構體或是 map 來插入一筆資料。這是最傳統的插入方式，若該表格有自動遞增的編號欄位，插入後你就能透過 `LastInsertID` 獲得最後一次插入的編號。
+透過 Rushia 你可以很輕鬆地透過建構體或是 map 來插入一筆資料。這是最傳統的插入方式。
 
 ```go
 db.Table("Users").Insert(map[string]interface{}{
@@ -161,11 +170,18 @@ db.Table("Users").Insert(map[string]interface{}{
 
 ### 當重複時
 
-Rushia 支援了插入資料若重複時可以更新該筆資料的指定欄位>這類似「覆蓋」，但這並不會先刪除原先的資料，這種方式僅會在插入時檢查是否重複，若重複則更新該筆資料。
+Rushia 支援了插入資料若重複時可以更新該筆資料的指定欄位，這類似「覆蓋」，但這並不會先刪除原先的資料，這種方式僅會在插入時檢查是否重複，若重複則更新該筆資料。
 
 ```go
 lastInsertID := "ID"
 db.Table("Users").OnDuplicate([]string{"UpdatedAt"}, lastInsertID).Insert(map[string]interface{}{
+	"Username":  "YamiOdymel",
+	"Password":  "test",
+	"UpdatedAt": db.Now(),
+})
+// 等效於：INSERT INTO Users (Username, Password, UpdatedAt) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE ID=LAST_INSERT_ID(ID), UpdatedAt = VALUES(UpdatedAt)
+
+db.Table("Users").OnDuplicate([]string{"UpdatedAt"}).Insert(map[string]interface{}{
 	"Username":  "YamiOdymel",
 	"Password":  "test",
 	"UpdatedAt": db.Now(),
@@ -198,6 +214,18 @@ db.Table("Users").InsertMulti(data)
 ```go
 db.Table("Users").Limit(10).Update(data)
 // 等效於：UPDATE Users SET ... LIMIT 10
+
+db.Table("Users").Limit(10, 20).Select(data)
+// 等效於：SELECT * from Users LIMIT 10, 20
+```
+
+## 筆數偏移
+
+透過 `Offset` 能夠以 `筆數, 上次索引編號` 的方式取得資料，例如：`10, 20` 則會從 `21` 開始取得 10 筆資料（`21, 22, 23...`）。
+
+```go
+db.Table("Users").Offset(10, 20).Select()
+// 等效於：SELECT * from Users LIMIT 10 OFFSET 20
 ```
 
 ## 更新
@@ -212,80 +240,47 @@ db.Table("Users").Where("Username", "YamiOdymel").Update(map[string]interface{}{
 // 等效於：UPDATE Users SET Username = ?, Password = ? WHERE Username = ?
 ```
 
-## 選擇與取得
+### 片段更新
 
-最基本的選擇在 Rushia 中稱之為 `Get` 而不是 `Select`。
+當你希望某些欄位在零值的時候不要進行更新，那麼你就可以使用 `Patch` 來做片段更新（也叫小修補）。
 
 ```go
-db.Table("Users").Get()
+db.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
+	"Age": 0,
+	"Username": "",
+	"Password": "123456",
+})
+// 等效於：UPDATE Users SET Password = ? WHERE Username = ?
+```
+
+## 選擇與取得
+
+最基本的資料取得在 Rushia 中透過 `Select` 使用。
+
+```go
+db.Table("Users").Select()
 // 等效於：SELECT * FROM Users
 ```
 
 ### 指定欄位
 
-在 `Get` 中傳遞欄位名稱作為參數，多個欄位由逗點區分，亦能是函式。
+在 `Select` 中傳遞欄位名稱作為參數，多個欄位由逗點區分，亦能是函式。
 
 ```go
-db.Table("Users").Get("Username", "Nickname")
+db.Table("Users").Select("Username", "Nickname")
 // 等效於：SELECT Username, Nickname FROM Users
 
-db.Table("Users").Get("COUNT(*) AS Count")
+db.Table("Users").Select("COUNT(*) AS Count")
 // 等效於：SELECT COUNT(*) AS Count FROM Users
 ```
 
 ### 單行資料
 
-通常多筆結果會映射到一個切片或是陣列，而 `GetOne` 可以取得單筆資料並將其結果映射到單個建構體或 `map`，令使用上更加方便。
-
-當透過 `map[string]interface{}` 當作映射對象的時候，請注意資料庫並不會自動辨別 `int`、`string` 等資料型態，反倒有可能會是 `int64`、`[]uint8{[]byte}`，因此使用 `map` 時請多加注意在型態轉換上的部分。
+如果只想要取得單筆資料，那麼就可以用上 `SelectOne`，這簡單來說就是 `.Limit(1)` 的縮寫。
 
 ```go
-var u User
-db.Bind(&u).Table("Users").Where("ID", 1).GetOne()
-// 等效於：SELECT * FROM Users WHERE ID = ? LIMIT 1
-
-var d map[string]interface{}
-db.Bind(&d).Table("Users").GetOne("SUM(ID) AS Sum", "COUNT(*) AS Count")
-// 等效於：SELECT SUM(ID), COUNT(*) AS Count FROM Users LIMIT 1
-
-fmt.Println(d["Sum"])
-fmt.Println(d["Count"])
-```
-
-### 單欄位值
-
-透過 `GetValue` 和 `GetValues` 來取得單個欄位的內容。例如說：你想要單個使用者的暱稱，甚至是多個使用者的暱稱陣列就很適用。
-
-```go
-// 取得多筆資料的 `Username` 欄位資料。
-var us []string
-db.Bind(&u).Table("Users").GetValues("Username")
-// 等效於：SELECT Username FROM Users
-
-// 取得單筆資料的某個欄位值。
-var u string
-db.Bind(&u).Table("Users").GetValue("Username")
+db.Table("Users").SelectOne("Username")
 // 等效於：SELECT Username FROM Users LIMIT 1
-
-// 或者是函式。
-var i int
-db.Bind(&i).Table("Users").GetValue("COUNT(*)")
-// 等效於：SELECT COUNT(*) FROM Users LIMIT 1
-```
-
-### 分頁功能
-
-分頁就像是取得資料ㄧ樣，但更擅長用於多筆資料、不會一次顯示完畢的內容。Rushia 能夠幫你自動處理換頁功能，讓你不需要自行計算換頁時的筆數應該從何開始。為此，你需要定義兩個變數，一個是目前的頁數，另一個是單頁能有幾筆資料。
-
-```go
-// 目前的頁數。
-page := 1
-// 設置一頁最多能有幾筆資料。
-db.PageLimit = 10
-db = db.Table("Users").Paginate(page)
-// 等效於：SELECT SQL_CALC_FOUND_ROWS * FROM Users LIMIT 0, 10
-
-fmt.Println("目前頁數為 %d，共有 %d 頁", page, db.TotalPages)
 ```
 
 ## 執行生指令
@@ -297,43 +292,6 @@ Rushia 已經提供了近乎日常中 80% 會用到的方式，但如果好死�
 ```go
 var us []User
 db.Bind(&us).RawQuery("SELECT * FROM Users WHERE ID >= ?", 10)
-```
-
-### 單行資料
-
-`RawQueryOne` 是個僅選擇單筆資料的生指令函式，這意味著你能夠將取得的資料映射到建構體或是 `map` 上。
-
-```go
-var u User
-db.Bind(&u).RawQueryOne("SELECT * FROM Users WHERE ID = ?", 10)
-// 等效於：SELECT * FROM Users WHERE ID = ? LIMIT 1
-
-var d map[string]interface{}
-db.Bind(&d).RawQueryOne("SELECT SUM(ID), COUNT(*) AS Count FROM Users")
-// 等效於：SELECT SUM(ID), COUNT(*) AS Count FROM Users LIMIT 1
-
-fmt.Println(d["Sum"])
-fmt.Println(d["Count"])
-```
-
-### 單欄位值
-
-透過 `RawQueryValue` 與 `RawQueryValues` 可以取得單個欄位的內容。例如說：你想要單個使用者的暱稱，甚至是多個使用者的暱稱陣列就很適用。
-
-```go
-// 取得多筆資料的 `Username` 欄位資料。
-var us []string
-db.Bind(&us).RawQueryValues("SELECT Username FROM Users")
-
-// 取得單筆資料的某個欄位值。
-var pwd string
-db.Bind(&pwd).RawQueryValue("SELECT Password FROM Users WHERE ID = ?", 10)
-// 等效於：SELECT Password FROM Users WHERE ID = ? LIMIT 1
-
-// 或者是函式。
-var i int
-db.Bind(&i).RawQueryValue("SELECT COUNT(*) FROM Users")
-// 等效於：SELECT COUNT(*) FROM Users LIMIT 1
 ```
 
 ### 進階方式
@@ -359,7 +317,7 @@ db.RawQuery(query, params...)
 透過 Rushia 宣告 `WHERE` 條件也能夠很輕鬆。一個最基本的 `WHERE AND` 像這樣使用。
 
 ```go
-db.Table("Users").Where("ID", 1).Where("Username", "admin").Get()
+db.Table("Users").Where("ID", 1).Where("Username", "admin").Select()
 // 等效於：SELECT * FROM Users WHERE ID = ? AND Username = ?
 ```
 
@@ -368,7 +326,7 @@ db.Table("Users").Where("ID", 1).Where("Username", "admin").Get()
 `HAVING` 能夠與 `WHERE` 一同使用。
 
 ```go
-db.Table("Users").Where("ID", 1).Having("Username", "admin").Get()
+db.Table("Users").Where("ID", 1).Having("Username", "admin").Select()
 // 等效於：SELECT * FROM Users WHERE ID = ? HAVING Username = ?
 ```
 
@@ -378,9 +336,9 @@ db.Table("Users").Where("ID", 1).Having("Username", "admin").Get()
 
 ```go
 // 別這樣。
-db.Table("Users").Where("LastLogin", "CreatedAt").Get()
+db.Table("Users").Where("LastLogin", "CreatedAt").Select()
 // 這樣才對。
-db.Table("Users").Where("LastLogin = CreatedAt").Get()
+db.Table("Users").Where("LastLogin = CreatedAt").Select()
 // 等效於：SELECT * FROM Users WHERE LastLogin = CreatedAt
 ```
 
@@ -389,7 +347,7 @@ db.Table("Users").Where("LastLogin = CreatedAt").Get()
 在 `Where` 或 `Having` 中，你可以自訂條件的運算子，如 >=、<=、<>⋯等。
 
 ```go
-db.Table("Users").Where("ID", ">=", 50).Get()
+db.Table("Users").Where("ID", ">=", 50).Select()
 // 等效於：SELECT * FROM Users WHERE ID >= ?
 ```
 
@@ -398,7 +356,7 @@ db.Table("Users").Where("ID", ">=", 50).Get()
 條件也可以用來限制數值內容是否在某數之間（相反之，也能夠限制是否不在某範圍內）。
 
 ```go
-db.Table("Users").Where("ID", "BETWEEN", 0, 20).Get()
+db.Table("Users").Where("ID", "BETWEEN", 0, 20).Select()
 // 等效於：SELECT * FROM Users WHERE ID BETWEEN ? AND ?
 ```
 
@@ -407,11 +365,11 @@ db.Table("Users").Where("ID", "BETWEEN", 0, 20).Get()
 條件能夠限制並確保取得的內容不在（或者在）指定清單內。
 
 ```go
-db.Table("Users").Where("ID", "IN", 1, 5, 27, -1, "d").Get()
+db.Table("Users").Where("ID", "IN", 1, 5, 27, -1, "d").Select()
 // 等效於：SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)
 
 list := []interface{}{1, 5, 27, -1, "d"}
-db.Table("Users").Where("ID", "IN", list...).Get()
+db.Table("Users").Where("ID", "IN", list...).Select()
 // 等效於：SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)
 ```
 
@@ -420,14 +378,14 @@ db.Table("Users").Where("ID", "IN", list...).Get()
 通常來說多個 `Where` 會產生 `AND` 條件，這意味著所有條件都必須符合，有些時候你只希望符合部分條件即可，就能夠用上 `OrWhere`。
 
 ```go
-db.Table("Users").Where("FirstNamte", "John").OrWhere("FirstNamte", "Peter").Get()
+db.Table("Users").Where("FirstNamte", "John").OrWhere("FirstNamte", "Peter").Select()
 // 等效於：SELECT * FROM Users WHERE FirstName = ? OR FirstName = ?
 ```
 
 如果你的要求比較多，希望達到「A = B 或者 (A = C 或 A = D)」的話，你可以嘗試這樣。
 
 ```go
-db.Table("Users").Where("A = B").OrWhere("(A = C OR A = D)").Get()
+db.Table("Users").Where("A = B").OrWhere("(A = C OR A = D)").Select()
 // 等效於：SELECT * FROM Users WHERE A = B OR (A = C OR A = D)
 ```
 
@@ -437,9 +395,9 @@ db.Table("Users").Where("A = B").OrWhere("(A = C OR A = D)").Get()
 
 ```go
 // 別這樣。
-db.Table("Users").Where("LastName", "NULL").Get()
+db.Table("Users").Where("LastName", "NULL").Select()
 // 這樣才對。
-db.Table("Users").Where("LastName", "IS", nil).Get()
+db.Table("Users").Where("LastName", "IS", nil).Select()
 // 等效於：SELECT * FROM Users WHERE LastName IS NULL
 ```
 
@@ -454,23 +412,23 @@ db.Table("Users").Where("LastName", "IS", nil).Get()
 判斷是否為特定年、月、日、星期或完整日期。
 
 ```go
-t := db.Timestamp
+t := rushia.NewTimestamp()
 
-db.Table("Users").Where("CreatedAt", t.IsDate("2017-07-13")).Get()
+db.Table("Users").Where("CreatedAt", t.IsDate("2017-07-13")).Select()
 // 等效於：SELECT * FROM Users WHERE DATE(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsYear(2017)).Get()
+db.Table("Users").Where("CreatedAt", t.IsYear(2017)).Select()
 // 等效於：SELECT * FROM Users WHERE YEAR(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsMonth(1)).Get()
-db.Table("Users").Where("CreatedAt", t.IsMonth("January")).Get()
+db.Table("Users").Where("CreatedAt", t.IsMonth(1)).Select()
+db.Table("Users").Where("CreatedAt", t.IsMonth("January")).Select()
 // 等效於：SELECT * FROM Users WHERE MONTH(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsDay(16)).Get()
+db.Table("Users").Where("CreatedAt", t.IsDay(16)).Select()
 // 等效於：SELECT * FROM Users WHERE DAY(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsWeekday(5)).Get()
-db.Table("Users").Where("CreatedAt", t.IsWeekday("Friday")).Get()
+db.Table("Users").Where("CreatedAt", t.IsWeekday(5)).Select()
+db.Table("Users").Where("CreatedAt", t.IsWeekday("Friday")).Select()
 // 等效於：SELECT * FROM Users WHERE WEEKDAY(FROM_UNIXTIME(CreatedAt)) = ?
 ```
 
@@ -479,18 +437,18 @@ db.Table("Users").Where("CreatedAt", t.IsWeekday("Friday")).Get()
 確定是否為特定時間。
 
 ```go
-t := db.Timestamp
+t := rushia.NewTimestamp()
 
-db.Table("Users").Where("CreatedAt", t.IsHour(18)).Get()
+db.Table("Users").Where("CreatedAt", t.IsHour(18)).Select()
 // 等效於：SELECT * FROM Users WHERE HOUR(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsMinute(25)).Get()
+db.Table("Users").Where("CreatedAt", t.IsMinute(25)).Select()
 // 等效於：SELECT * FROM Users WHERE MINUTE(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsSecond(16)).Get()
+db.Table("Users").Where("CreatedAt", t.IsSecond(16)).Select()
 // 等效於：SELECT * FROM Users WHERE SECOND(FROM_UNIXTIME(CreatedAt)) = ?
 
-db.Table("Users").Where("CreatedAt", t.IsWeekday(5)).Get()
+db.Table("Users").Where("CreatedAt", t.IsWeekday(5)).Select()
 // 等效於：SELECT * FROM Users WHERE WEEKDAY(FROM_UNIXTIME(CreatedAt)) = ?
 ```
 
@@ -499,7 +457,7 @@ db.Table("Users").Where("CreatedAt", t.IsWeekday(5)).Get()
 你也能夠直接在條件中輸入指令。
 
 ```go
-db.Table("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Get()
+db.Table("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // 等效於：SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
 ```
 
@@ -508,20 +466,16 @@ db.Table("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLog
 生條件中可以透過 `?` 符號，並且在後面傳入自訂變數。
 
 ```go
-db.Table("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Get()
+db.Table("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Select()
 // 等效於：SELECT * FROM Users WHERE (ID = ? OR ID = ?) AND Login = ?
 ```
 
 ## 刪除
 
-刪除一筆資料再簡單不過了，透過 `Count` 計數能夠清楚知道你的 SQL 指令影響了幾行資料，如果是零的話即是無刪除任何資料。
+刪除一筆資料再簡單不過了。
 
 ```go
-var err error
-db, err = db.Table("Users").Where("ID", 1).Delete()
-if count := db.Count(); err == nil && count != 0 {
-    fmt.Printf("成功地刪除了 %d 筆資料！", count)
-}
+db.Table("Users").Where("ID", 1).Delete()
 // 等效於：DELETE FROM Users WHERE ID = ?
 ```
 
@@ -530,7 +484,7 @@ if count := db.Count(); err == nil && count != 0 {
 Rushia 亦支援排序功能，如遞增或遞減，亦能擺放函式。
 
 ```go
-db.Table("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()").Get()
+db.Table("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()").Select()
 // 等效於：SELECT * FROM Users ORDER BY ID ASC, Login DESC, RAND()
 ```
 
@@ -539,7 +493,7 @@ db.Table("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()"
 也能夠從值進行排序，只需要傳入一個切片即可。
 
 ```go
-db.Table("Users").OrderBy("UserGroup", "ASC", "SuperUser", "Admin", "Users").Get()
+db.Table("Users").OrderBy("UserGroup", "ASC", "SuperUser", "Admin", "Users").Select()
 // 等效於：SELECT * FROM Users ORDER BY FIELD (UserGroup, ?, ?, ?) ASC
 ```
 
@@ -548,7 +502,7 @@ db.Table("Users").OrderBy("UserGroup", "ASC", "SuperUser", "Admin", "Users").Get
 簡單的透過 `GroupBy` 就能夠將資料由指定欄位群組排序。
 
 ```go
-db.Table("Users").GroupBy("Name").Get()
+db.Table("Users").GroupBy("Name").Select()
 // 等效於：SELECT * FROM Users GROUP BY Name
 ```
 
@@ -561,7 +515,7 @@ db.
 	Table("Products").
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
 	Where("Users.ID", 6).
-	Get("Users.Name", "Products.ProductName")
+	Select("Users.Name", "Products.ProductName")
 // 等效於：SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?
 ```
 
@@ -574,17 +528,17 @@ db.
 	Table("Products").
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
 	JoinOrWhere("Users", "Users.TenantID", 5).
-	Get("Users.Name", "Products.ProductName")
+	Select("Users.Name", "Products.ProductName")
 // 等效於：SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID OR Users.TenantID = ?)
 ```
 
 ## 子指令
 
-Rushia 支援複雜的子指令，欲要建立一個子指令請透過 `SubQuery` 函式，這將會建立一個不能被執行的資料庫建置函式庫，令你可以透過 `Get`、`Update` 等建立相關 SQL 指令，但不會被資料庫執行。將其帶入到一個正常的資料庫函式中即可成為子指令。
+Rushia 支援複雜的子指令，欲要建立一個子指令請透過 `SubQuery` 函式。將其帶入到一個正常的建置函式中即可成為子指令。
 
 ```go
-subQuery := db.SubQuery().Table("Users").Get()
-// 等效於不會被執行的：SELECT * FROM Users
+subQuery := db.SubQuery().Table("Users").Select()
+// 等效於：SELECT * FROM Users
 ```
 
 ### 選擇／取得
@@ -592,9 +546,9 @@ subQuery := db.SubQuery().Table("Users").Get()
 你能夠輕易地將子指令放置在選擇／取得指令中。
 
 ```go
-subQuery := db.SubQuery().Table("Products").Where("Quantity", ">", 2).Get("UserID")
+subQuery := db.SubQuery().Table("Products").Where("Quantity", ">", 2).Select("UserID")
 
-db.Table("Users").Where("ID", "IN", subQuery).Get()
+db.Table("Users").Where("ID", "IN", subQuery).Select()
 // 等效於：SELECT * FROM Users WHERE ID IN (SELECT UserID FROM Products WHERE Quantity > ?)
 ```
 
@@ -603,7 +557,7 @@ db.Table("Users").Where("ID", "IN", subQuery).Get()
 插入新資料時也可以使用子指令。
 
 ```go
-subQuery := db.SubQuery().Table("Users").Where("ID", 6).Get("Name")
+subQuery := db.SubQuery().Table("Users").Where("ID", 6).Select("Name")
 
 db.Table("Products").Insert(map[string]interface{}{
 	"ProductName": "測試商品",
@@ -618,12 +572,12 @@ db.Table("Products").Insert(map[string]interface{}{
 就算是加入表格的時候也可以用上子指令，但你需要為子指令建立別名。
 
 ```go
-subQuery := db.SubQuery("Users").Table("Users").Where("Active", 1).Get()
+subQuery := db.SubQuery("Users").Table("Users").Where("Active", 1).Select()
 
 db.
 	Table("Products").
 	LeftJoin(subQuery, "Products.UserID = U.ID").
-	Get("Users.Username", "Products.ProductName")
+	Select("Users.Username", "Products.ProductName")
 // 等效於：SELECT Users.Username, Products.ProductName FROM Products AS Products LEFT JOIN (SELECT * FROM Users WHERE Active = ?) AS Users ON Products.UserID = Users.ID
 ```
 
@@ -632,129 +586,23 @@ db.
 你同時也能夠透過子指令來確定某筆資料是否存在。
 
 ```go
-subQuery := db.SubQuery().Table("Users").Where("Company", "測試公司").Get("UserID")
+subQuery := db.SubQuery().Table("Users").Where("Company", "測試公司").Select("UserID")
 
-db.Table("Products").Where(subQuery, "EXISTS").Get()
+db.Table("Products").Where(subQuery, "EXISTS").Select()
 // 等效於：SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)
-```
-
-## 是否擁有該筆資料
-
-有些時候我們只想知道資料庫是否有符合的資料，但並不是要取得其資料，舉例來說就像是登入是僅是要確認帳號密碼是否吻合，此時就可以透過 `Has` 用來確定資料庫是否有這筆資料。
-
-```go
-has, err := db.Table("Users").Where("Username", "yamiodymel").Where("Password", "123456").Has()
-if has {
-	fmt.Println("登入成功！")
-} else {
-	fmt.Println("帳號或密碼錯誤。")
-}
 ```
 
 ## 輔助函式
 
 Rushia 有提供一些輔助用的函式協助你除錯、紀錄，或者更加地得心應手。
 
-### 資料庫連線
-
-透過 Disconnect 結束一段連線。
-
-```go
-if err := db.Disconnect(); err != nil {
-	panic(err)
-}
-```
-
-你也能在資料庫發生錯誤、連線遺失時透過 `Connect` 來重新手動連線。
-
-```go
-if err := db.Ping(); err != nil {
-	db.Connect()
-}
-```
-
-### 最後執行的 SQL 指令
-
-取得最後一次所執行的 SQL 指令，這能夠用來記錄你所執行的所有動作。
-
-```go
-db = db.Table("Users").Get()
-fmt.Println("最後一次執行的 SQL 指令是：%s", db.LastQuery)
-// 輸出：SELECT * FROM Users
-```
-
-### 結果／影響的行數
-
-行數很常用於檢查是否有資料、作出變更。資料庫不會因為沒有變更任何資料而回傳一個錯誤（資料庫僅會在真正發生錯誤時回傳錯誤資料），所以這是很好的檢查方法。
-
-```go
-db, _ = db.Table("Users").Get()
-fmt.Println("總共獲取 %s 筆資料", db.Count())
-db, _ = db.Table("Users").Delete()
-fmt.Println("總共刪除 %s 筆資料", db.Count())
-db, _ = db.Table("Users").Update(data)
-fmt.Println("總共更新 %s 筆資料", db.Count())
-```
-
-### 最後插入的編號
-
-當插入一筆新的資料，而該表格帶有自動遞增的欄位時，就能透過 `LastInsertID` 取得最新一筆資料的編號。
-
-```go
-var id int
-
-db, _ = db.Table("Users").Insert(data)
-id = db.LastInsertID
-```
-
-如果你是經由 `InsertMulti` 同時間插入多筆資料，基於 MySQL 底層的設定，你並沒有辦法透過 `LastInsertID` 取得剛才插入的所有資料編號。如果你仍希望取得插入編號，請透過迴圈不斷地執行 `Insert` 並保存其 `LastInsertID` 資料。
-
-```go
-var ids []int
-
-for ... {
-	var err error
-	db, err = db.Table("Users").Insert(data)
-	if err != nil {
-		ids = append(ids, db.LastInsertID)
-	}
-}
-```
-
 ### 總筆數
 
 如果你想取得這個指令總共能夠取得多少筆資料，透過 `WithTotalCount` 就能夠啟用總筆數查詢，這可能會稍微降低一點資料庫效能。
 
 ```go
-db, _ = db.Table("Users").WithTotalCount().Get()
-fmt.Println(db.TotalCount)
-```
-
-## 交易函式
-
-交易函式僅限於 [InnoDB](https://zh.wikipedia.org/zh-tw/InnoDB) 型態的資料表格，這能令你的資料寫入更加安全。你可以透過 `Begin` 開始記錄並繼續你的資料庫寫入行為，如果途中發生錯誤，你能透過 `Rollback` 回到紀錄之前的狀態，即為回溯（或滾回、退回），如果這筆交易已經沒有問題了，透過 `Commit` 將這次的變更永久地儲存到資料庫中。
-
-```go
-// 當交易開始時請使用回傳的 `tx` 而不是原先的 `db`，這樣才能確保交易繼續。
-tx, err := db.Begin()
-if err != nil {
-	panic(err)
-}
-
-// 如果插入資料時發生錯誤，則呼叫 `Rollback()` 回到交易剛開始的時候。
-if _, err = tx.Table("Wallets").Insert(data); err != nil {
-	tx.Rollback()
-	panic(err)
-}
-if _, err = tx.Table("Users").Insert(data); err != nil {
-	tx.Rollback()
-	panic(err)
-}
-
-// 透過 `Commit()` 確保上列變更都已經永久地儲存到資料庫。
-if err := tx.Commit(); err != nil {
-	panic(err)
-}
+db.Table("Users").WithTotalCount().Select()
+// 等效於：SELECT SQL_CALC_FOUND_ROWS * FROM Users
 ```
 
 ## 鎖定表格
@@ -781,10 +629,10 @@ Rushia 也支援設置指令關鍵字。
 db.Table("Users").SetQueryOption("LOW_PRIORITY").Insert(data)
 // 等效於：INSERT LOW_PRIORITY INTO Users ...
 
-db.Table("Users").SetQueryOption("FOR UPDATE").Get()
+db.Table("Users").SetQueryOption("FOR UPDATE").Select()
 // 等效於：SELECT * FROM Users FOR UPDATE
 
-db.Table("Users").SetQueryOption("SQL_NO_CACHE").Get()
+db.Table("Users").SetQueryOption("SQL_NO_CACHE").Select()
 // 等效於：SELECT SQL_NO_CACHE * FROM Users
 ```
 
@@ -797,25 +645,12 @@ db.Table("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 // Gives: INSERT LOW_PRIORITY IGNORE INTO Users ...
 ```
 
-## 效能追蹤
-
-這會降低執行效能，但透過追蹤功能能夠有效地得知每個指令所花費的執行時間和建置指令，並且取得相關執行檔案路徑與行號。
-
-```go
-db = db.SetTrace(true).Table("Users").Get()
-fmt.Printf("%+v", db.Traces[0])
-
-//[{Query:SELECT * FROM Users Duration:808.698µs Stacks:[map
-//[File:/Users/YamiOdymel/go/src/github.com/teacat/reiner/builder.go Line:559 Skip:0 PC:19399228] map[Line:666 Skip:1 PC:19405153 //File:/Users/YamiOdymel/go/src/github.com/teacat/reiner/builder.go] map[Skip:2 PC:19407043 //File:/Users/YamiOdymel/go/src/github.com/teacat/reiner/builder.go Line:705] map[Line:74 Skip:3 PC:19548011 //File:/Users/YamiOdymel/go/src/github.com/teacat/reiner/builder.go] map[PC:17610310 //File:/usr/local/Cellar/go/1.8/libexec/src/testing/testing.go Line:657 Skip:4] map
-//[File:/usr/local/Cellar/go/1.8/libexec/src/runtime/asm_amd64.s Line:2197 Skip:5 PC:17143345]] Error:<nil>}]
-```
-
 # 表格建構函式
 
 Rushia 除了基本的資料庫函式可供使用外，還能夠建立一個表格並且規劃其索引、外鍵、型態。
 
 ```go
-migration := db.Migration()
+migration := rushia.NewMigration()
 
 migration.Table("Users").Column("Username").Varchar(32).Primary().Create()
 // 等效於：CREATE TABLE Users (Username VARCHAR(32) NOT NULL PRIMARY KEY) ENGINE=INNODB
