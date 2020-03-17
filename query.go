@@ -125,16 +125,18 @@ func (b Query) saveCondition(typ, connector string, args ...interface{}) Query {
 //=======================================================
 
 // bindParams 會將接收到的多個變數綁定到本次的建置工作中，並且產生、回傳相對應的 SQL 指令片段。
-func (b Query) bindParams(data []interface{}) (query string) {
+func (b Query) bindParams(data []interface{}) (query string, self Query) {
 	for _, v := range data {
-		query += fmt.Sprintf("%s, ", b.bindParam(v))
+		param, self := b.bindParam(v)
+		b = self
+		query += fmt.Sprintf("%s, ", param)
 	}
 	query = trim(query)
-	return
+	return query, b
 }
 
 // bindParam 會將單個傳入的變數綁定到本次的建置工作中，並且依照變數型態來產生並回傳相對應的 SQL 指令片段與決定是否要以括號包覆。
-func (b Query) bindParam(data interface{}, parentheses ...bool) (param string) {
+func (b Query) bindParam(data interface{}, parentheses ...bool) (param string, self Query) {
 	switch v := data.(type) {
 	case SubQuery:
 		if len(v.query.params) > 0 {
@@ -151,7 +153,7 @@ func (b Query) bindParam(data interface{}, parentheses ...bool) (param string) {
 		b.params = append(b.params, data)
 	}
 	param = b.paramToQuery(data, parentheses...)
-	return
+	return param, b
 }
 
 // paramToQuery 會將參數的變數資料型態轉換成 SQL 指令片段，並決定是否要加上括號。
@@ -198,7 +200,7 @@ func (b Query) buildWhere(typ string) (query string) {
 }
 
 // buildUpdate 會建置 `UPDATE` 的 SQL 指令。
-func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string) {
+func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string, self Query) {
 	var set string
 	beforeOptions, _ := b.buildQueryOptions()
 	query = fmt.Sprintf("UPDATE %s%s SET ", beforeOptions, b.tableName[0])
@@ -212,7 +214,9 @@ func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string) 
 			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
 				continue
 			}
-			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
+			param, self := b.bindParam(value)
+			b = self
+			set += fmt.Sprintf("%s = %s, ", column, param)
 		}
 	default:
 		b.rangeStruct(realData, func(column string, value interface{}) {
@@ -222,11 +226,13 @@ func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string) 
 			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
 				return
 			}
-			set += fmt.Sprintf("%s = %s, ", column, b.bindParam(value))
+			param, self := b.bindParam(value)
+			b = self
+			set += fmt.Sprintf("%s = %s, ", column, param)
 		})
 	}
 	query += fmt.Sprintf("%s ", trim(set))
-	return
+	return query, b
 }
 
 // buildLimit 會建置 `LIMIT` 的 SQL 指令。
@@ -296,16 +302,23 @@ func (b Query) buildConditions(conditions []condition) (query string) {
 			switch typ {
 			case "Query":
 				query += fmt.Sprintf("%s ", v.args[0].(string))
-				b.bindParam(v.args[1])
+				_, self := b.bindParam(v.args[1])
+				b = self
 			case "Column":
 				switch d := v.args[1].(type) {
 				case Timestamp:
-					query += fmt.Sprintf(d.query, v.args[0].(string), b.bindParam(d))
+					param, self := b.bindParam(d)
+					b = self
+					query += fmt.Sprintf(d.query, v.args[0].(string), param)
 				default:
-					query += fmt.Sprintf("%s = %s ", v.args[0].(string), b.bindParam(d))
+					param, self := b.bindParam(d)
+					b = self
+					query += fmt.Sprintf("%s = %s ", v.args[0].(string), param)
 				}
 			case "SubQuery":
-				query += fmt.Sprintf("%s %s ", v.args[1].(string), b.bindParam(v.args[0]))
+				param, self := b.bindParam(v.args[0])
+				b = self
+				query += fmt.Sprintf("%s %s ", v.args[1].(string), param)
 			}
 		// .Where("Column", ">", "Value")
 		// .Where("Column", "IN", subQuery)
@@ -316,9 +329,13 @@ func (b Query) buildConditions(conditions []condition) (query string) {
 				b.bindParams(v.args[1:])
 			} else {
 				if v.args[1].(string) == "IN" || v.args[1].(string) == "NOT IN" {
-					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), b.bindParam(v.args[2], false))
+					param, self := b.bindParam(v.args[2], false)
+					b = self
+					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), param)
 				} else {
-					query += fmt.Sprintf("%s %s %s ", v.args[0].(string), v.args[1].(string), b.bindParam(v.args[2]))
+					param, self := b.bindParam(v.args[2])
+					b = self
+					query += fmt.Sprintf("%s %s %s ", v.args[0].(string), v.args[1].(string), param)
 				}
 			}
 		// .Where("(Column = ? OR Column = SHA(?))", "Value", "Value")
@@ -330,9 +347,15 @@ func (b Query) buildConditions(conditions []condition) (query string) {
 			} else {
 				switch v.args[1].(string) {
 				case "BETWEEN", "NOT BETWEEN":
-					query += fmt.Sprintf("%s %s %s AND %s ", v.args[0].(string), v.args[1].(string), b.bindParam(v.args[2]), b.bindParam(v.args[3]))
+					param, self := b.bindParam(v.args[2])
+					b = self
+					param2, self := b.bindParam(v.args[3])
+					b = self
+					query += fmt.Sprintf("%s %s %s AND %s ", v.args[0].(string), v.args[1].(string), param, param2)
 				case "IN", "NOT IN":
-					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), b.bindParams(v.args[2:]))
+					param, self := b.bindParams(v.args[2:])
+					b = self
+					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), param)
 				}
 			}
 		}
@@ -400,7 +423,9 @@ func (b Query) buildOrderBy() (query string) {
 			query += fmt.Sprintf("%s %s, ", v.column, v.args[0])
 		// .OrderBy("UserGroup", "ASC", "SuperUser", "Admin")
 		default:
-			query += fmt.Sprintf("FIELD (%s, %s) %s, ", v.column, b.bindParams(v.args[1:]), v.args[0])
+			param, self := b.bindParams(v.args[1:])
+			b = self
+			query += fmt.Sprintf("FIELD (%s, %s) %s, ", v.column, param, v.args[0])
 		}
 	}
 	query = trim(query) + " "
@@ -475,7 +500,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 				continue
 			}
 			columns += fmt.Sprintf("%s, ", column)
-			values += fmt.Sprintf("%s, ", b.bindParam(value))
+			param, self := b.bindParam(value)
+			b = self
+			values += fmt.Sprintf("%s, ", param)
 		}
 		values = fmt.Sprintf("(%s)", trim(values))
 
@@ -493,7 +520,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 		for _, single := range realData {
 			var currentValues string
 			for _, name := range columnNames {
-				currentValues += fmt.Sprintf("%s, ", b.bindParam(single[name]))
+				param, self := b.bindParam(single[name])
+				b = self
+				currentValues += fmt.Sprintf("%s, ", param)
 			}
 			values += fmt.Sprintf("(%s), ", trim(currentValues))
 		}
@@ -505,7 +534,9 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 				return
 			}
 			columns += fmt.Sprintf("%s, ", column)
-			values += fmt.Sprintf("%s, ", b.bindParam(value))
+			param, self := b.bindParam(value)
+			b = self
+			values += fmt.Sprintf("%s, ", param)
 		})
 		values = fmt.Sprintf("(%s)", trim(values))
 	}
@@ -522,7 +553,9 @@ func (b Query) buildJoin() (query string) {
 		switch d := v.table.(type) {
 		// 子指令。
 		case SubQuery:
-			query += fmt.Sprintf("%s AS %s ON ", b.bindParam(d), d.query.alias)
+			param, self := b.bindParam(d)
+			b = self
+			query += fmt.Sprintf("%s AS %s ON ", param, d.query.alias)
 		// 資料表格名稱。
 		case string:
 			query += fmt.Sprintf("%s ON ", d)
@@ -630,14 +663,18 @@ func (b Query) Replace(data interface{}) (query string, params []interface{}) {
 
 // Update 會以指定的資料來更新相對應的資料列。
 func (b Query) Update(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildUpdate(data, false)
+	query, self := b.buildUpdate(data, false)
+	b = self
+	b.query = query
 	query, params = b.runQuery()
 	return
 }
 
 // Patch 會以片段更新的方式處理傳入的資料，任何零值會被忽略而不納入更新範圍。
 func (b Query) Patch(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildUpdate(data, true)
+	query, self := b.buildUpdate(data, true)
+	b = self
+	b.query = query
 	query, params = b.runQuery()
 	return
 }
