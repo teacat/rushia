@@ -182,7 +182,7 @@ func (b Query) paramToQuery(data interface{}, parentheses ...bool) (param string
 //=======================================================
 
 // buildWhere 會基於目前所擁有的條件式來建置一串 `WHERE` 和 `HAVING` 的 SQL 指令。
-func (b Query) buildWhere(typ string) (query string) {
+func (b Query) buildWhere(typ string) (query string, self Query) {
 	var conditions []condition
 	if typ == "HAVING" {
 		conditions = b.havingConditions
@@ -193,10 +193,12 @@ func (b Query) buildWhere(typ string) (query string) {
 	}
 	if len(conditions) == 0 {
 		query = ""
-		return
+		return query, b
 	}
-	query += b.buildConditions(conditions)
-	return
+	conditionQuery, self := b.buildConditions(conditions)
+	b = self
+	query += conditionQuery
+	return query, b
 }
 
 // buildUpdate 會建置 `UPDATE` 的 SQL 指令。
@@ -270,7 +272,7 @@ func (b Query) buildSelect(columns ...string) (query string) {
 }
 
 // buildConditions 會將傳入的條件式轉換成指定的 `WHERE` 或 `HAVING` SQL 指令。
-func (b Query) buildConditions(conditions []condition) (query string) {
+func (b Query) buildConditions(conditions []condition) (query string, self Query) {
 	for i, v := range conditions {
 		// 如果不是第一個條件式的話，那麼就增加連結語句。
 		if i != 0 {
@@ -360,7 +362,7 @@ func (b Query) buildConditions(conditions []condition) (query string) {
 			}
 		}
 	}
-	return
+	return query, b
 }
 
 // buildDelete 會建置 `DELETE` 的 SQL 指令。
@@ -393,14 +395,21 @@ func (b Query) buildQueryOptions() (before string, after string) {
 // buildQuery 會將所有建置工作串連起來並且依序執行來建置整個可用的 SQL 指令。
 func (b Query) buildQuery() Query {
 	b.query += b.buildDuplicate()
-	b.query += b.buildJoin()
-	b.query += b.buildWhere("WHERE")
-	b.query += b.buildWhere("HAVING")
-	b.query += b.buildOrderBy()
+	query, self := b.buildJoin()
+	b = self
+	b.query += query
+	query, self = b.buildWhere("WHERE")
+	b = self
+	b.query += query
+	query, self = b.buildWhere("HAVING")
+	b = self
+	b.query += query
+	query, self = b.buildOrderBy()
+	b = self
+	b.query += query
 	b.query += b.buildGroupBy()
 	b.query += b.buildLimit()
 	b.query += b.buildOffset()
-
 	_, afterOptions := b.buildQueryOptions()
 	b.query += afterOptions
 	b.query = strings.TrimSpace(b.query)
@@ -408,9 +417,9 @@ func (b Query) buildQuery() Query {
 }
 
 // buildOrderBy 會基於現有的排序資料來建置 `ORDERY BY` 的 SQL 指令。
-func (b Query) buildOrderBy() (query string) {
+func (b Query) buildOrderBy() (query string, self Query) {
 	if len(b.orders) == 0 {
-		return
+		return query, b
 	}
 	query += "ORDER BY "
 	for _, v := range b.orders {
@@ -429,7 +438,7 @@ func (b Query) buildOrderBy() (query string) {
 		}
 	}
 	query = trim(query) + " "
-	return
+	return query, b
 }
 
 // buildGroupBy 會建置 `GROUP BY` 的 SQL 指令。
@@ -488,7 +497,7 @@ func (b Query) isOmitted(field string) bool {
 }
 
 // buildInsert 會建置 `INSERT INTO` 的 SQL 指令。
-func (b Query) buildInsert(operator string, data interface{}) (query string) {
+func (b Query) buildInsert(operator string, data interface{}) (query string, self Query) {
 	var columns, values string
 	beforeOptions, _ := b.buildQueryOptions()
 
@@ -542,11 +551,11 @@ func (b Query) buildInsert(operator string, data interface{}) (query string) {
 	}
 	columns = trim(columns)
 	query = fmt.Sprintf("%s %sINTO %s (%s) VALUES %s ", operator, beforeOptions, b.tableName[0], columns, values)
-	return
+	return query, b
 }
 
 // buildJoin 會建置資料表的插入 SQL 指令。
-func (b Query) buildJoin() (query string) {
+func (b Query) buildJoin() (query string, self Query) {
 	for _, v := range b.joins {
 		// 插入的種類（例如：`LEFT JOIN`、`RIGHT JOIN`、`INNER JOIN`）。
 		query += fmt.Sprintf("%s ", v.typ)
@@ -564,11 +573,13 @@ func (b Query) buildJoin() (query string) {
 		if len(v.conditions) == 0 {
 			query += fmt.Sprintf("(%s) ", v.condition)
 		} else {
-			conditionsQuery := strings.TrimSpace(b.buildConditions(v.conditions))
+			conditionsQuery, self := b.buildConditions(v.conditions)
+			b = self
+			conditionsQuery = strings.TrimSpace(conditionsQuery)
 			query += fmt.Sprintf("(%s %s %s) ", v.condition, v.conditions[0].connector, conditionsQuery)
 		}
 	}
-	return
+	return query, b
 }
 
 //=======================================================
@@ -629,14 +640,18 @@ func (b Query) Exists() (query string, params []interface{}) {
 
 // Insert 會插入一筆新的資料。
 func (b Query) Insert(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildInsert("INSERT", data)
+	query, self := b.buildInsert("INSERT", data)
+	b = self
+	b.query = query
 	query, params = b.runQuery()
 	return
 }
 
 // InsertMulti 會一次插入多筆資料。
 func (b Query) InsertMulti(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildInsert("INSERT", data)
+	query, self := b.buildInsert("INSERT", data)
+	b = self
+	b.query = query
 	query, params = b.runQuery()
 	return
 }
@@ -656,7 +671,9 @@ func (b Query) Delete() (query string, params []interface{}) {
 // Replace 基本上和 `Insert` 無異，這會在有重複資料時移除該筆資料並重新插入。
 // 若無該筆資料則插入新的資料。
 func (b Query) Replace(data interface{}) (query string, params []interface{}) {
-	b.query = b.buildInsert("REPLACE", data)
+	query, self := b.buildInsert("REPLACE", data)
+	b = self
+	b.query = query
 	query, params = b.runQuery()
 	return
 }

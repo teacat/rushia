@@ -86,6 +86,16 @@ func TestInsert(t *testing.T) {
 	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
 }
 
+func TestInsertParams(t *testing.T) {
+	assert := assert.New(t)
+	query, params := builder.Table("Users").Insert(map[string]interface{}{
+		"Username": "YamiOdymel",
+		"Password": "test",
+	})
+	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
+	assert.Len(params, 2)
+}
+
 func TestInsertMulti(t *testing.T) {
 	assert := assert.New(t)
 	data := []map[string]interface{}{
