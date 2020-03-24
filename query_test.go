@@ -362,6 +362,12 @@ func TestWhereOperator(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users WHERE ID >= ?", query)
 }
 
+func TestWhereLike(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("ID", "LIKE", 50).Select()
+	assertEqual(assert, "SELECT * FROM Users WHERE ID LIKE ?", query)
+}
+
 func TestWhereBetween(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("ID", "BETWEEN", 0, 20).Select()
