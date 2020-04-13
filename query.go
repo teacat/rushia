@@ -326,9 +326,11 @@ func (b Query) buildConditions(conditions []condition) (query string, self Query
 		// .Where("Column", "IN", subQuery)
 		// .Where("Column", "IS", nil)
 		case 3:
+			fmt.Printf("%+v", v.args[1:])
 			if typ == "Query" {
 				query += fmt.Sprintf("%s ", v.args[0].(string))
-				b.bindParams(v.args[1:])
+				_, self := b.bindParams(v.args[1:])
+				b = self
 			} else {
 				if v.args[1].(string) == "IN" || v.args[1].(string) == "NOT IN" {
 					param, self := b.bindParam(v.args[2], false)
@@ -345,7 +347,8 @@ func (b Query) buildConditions(conditions []condition) (query string, self Query
 		default:
 			if typ == "Query" {
 				query += fmt.Sprintf("%s ", v.args[0].(string))
-				b.bindParams(v.args[1:])
+				_, self := b.bindParams(v.args[1:])
+				b = self
 			} else {
 				switch v.args[1].(string) {
 				case "BETWEEN", "NOT BETWEEN":

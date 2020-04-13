@@ -430,17 +430,21 @@ func TestTimestampDate(t *testing.T) {
 func TestTimestampTime(t *testing.T) {
 	assert := assert.New(t)
 	ts := NewTimestamp()
-	query, _ := builder.Table("Users").Where("CreatedAt", ts.IsHour(18)).Select()
+	query, p := builder.Table("Users").Where("CreatedAt", ts.IsHour(18)).Select()
 	assertEqual(assert, "SELECT * FROM Users WHERE HOUR(FROM_UNIXTIME(CreatedAt)) = ?", query)
+	assert.Len(p, 1)
 
-	query, _ = builder.Table("Users").Where("CreatedAt", ts.IsMinute(25)).Select()
+	query, p = builder.Table("Users").Where("CreatedAt", ts.IsMinute(25)).Select()
 	assertEqual(assert, "SELECT * FROM Users WHERE MINUTE(FROM_UNIXTIME(CreatedAt)) = ?", query)
+	assert.Len(p, 1)
 
-	query, _ = builder.Table("Users").Where("CreatedAt", ts.IsSecond(16)).Select()
+	query, p = builder.Table("Users").Where("CreatedAt", ts.IsSecond(16)).Select()
 	assertEqual(assert, "SELECT * FROM Users WHERE SECOND(FROM_UNIXTIME(CreatedAt)) = ?", query)
+	assert.Len(p, 1)
 
-	query, _ = builder.Table("Users").Where("CreatedAt", ts.IsWeekday(5)).Select()
+	query, p = builder.Table("Users").Where("CreatedAt", ts.IsWeekday(5)).Select()
 	assertEqual(assert, "SELECT * FROM Users WHERE WEEKDAY(FROM_UNIXTIME(CreatedAt)) = ?", query)
+	assert.Len(p, 1)
 }
 
 func TestRawWhere(t *testing.T) {
@@ -451,8 +455,9 @@ func TestRawWhere(t *testing.T) {
 
 func TestRawWhereParams(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := builder.Table("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Select()
+	query, p := builder.Table("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Select()
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR ID = ?) AND Login = ?", query)
+	assert.Len(p, 3)
 }
 
 func TestDelete(t *testing.T) {
