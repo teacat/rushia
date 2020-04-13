@@ -326,7 +326,6 @@ func (b Query) buildConditions(conditions []condition) (query string, self Query
 		// .Where("Column", "IN", subQuery)
 		// .Where("Column", "IS", nil)
 		case 3:
-			fmt.Printf("%+v", v.args[1:])
 			if typ == "Query" {
 				query += fmt.Sprintf("%s ", v.args[0].(string))
 				_, self := b.bindParams(v.args[1:])
