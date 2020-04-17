@@ -213,9 +213,9 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 			if b.isOmitted(column) {
 				continue
 			}
+			reflectValue := reflect.ValueOf(value)
+			isZero := reflectValue.IsZero()
 			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
-				value := reflect.ValueOf(value)
-				isZero := value.IsZero()
 				var isExcludedColumn bool
 				for _, v := range opts.ExcludedColumns {
 					if v == column {
@@ -225,7 +225,7 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 				}
 				var isExcludedType bool
 				for _, v := range opts.ExcludedTypes {
-					if value.Kind() == v {
+					if reflectValue.Kind() == v {
 						isExcludedType = true
 						break
 					}
@@ -233,6 +233,9 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 				if isZero && !isExcludedColumn && !isExcludedType {
 					continue
 				}
+			}
+			if isZero {
+				continue
 			}
 			param, self := b.bindParam(value)
 			b = self
@@ -243,9 +246,9 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 			if b.isOmitted(column) {
 				return
 			}
+			reflectValue := reflect.ValueOf(value)
+			isZero := reflectValue.IsZero()
 			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
-				value := reflect.ValueOf(value)
-				isZero := value.IsZero()
 				var isExcludedColumn bool
 				for _, v := range opts.ExcludedColumns {
 					if v == column {
@@ -255,7 +258,7 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 				}
 				var isExcludedType bool
 				for _, v := range opts.ExcludedTypes {
-					if value.Kind() == v {
+					if reflectValue.Kind() == v {
 						isExcludedType = true
 						break
 					}
@@ -263,6 +266,9 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 				if isZero && !isExcludedColumn && !isExcludedType {
 					return
 				}
+			}
+			if isZero {
+				return
 			}
 			param, self := b.bindParam(value)
 			b = self
