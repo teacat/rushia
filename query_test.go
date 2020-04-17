@@ -1,6 +1,7 @@
 package rushia
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -227,9 +228,37 @@ func TestPatch(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
 		"Username": "",
+		"Age":      0,
+		"Height":   183,
 		"Password": "123456",
 	})
-	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+	assertEqual(assert, "UPDATE Users SET Password = ?, Height = ? WHERE Username = ?", query)
+}
+
+func TestPatchExcludedTypes(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
+		"Username": "",
+		"Age":      0,
+		"Height":   183,
+		"Password": "123456",
+	}, PatchOptions{
+		ExcludedTypes: []reflect.Kind{reflect.String},
+	})
+	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ?, Height = ? WHERE Username = ?", query)
+}
+
+func TestPatchExcludedColumns(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
+		"Username": "",
+		"Age":      0,
+		"Height":   0,
+		"Password": "123456",
+	}, PatchOptions{
+		ExcludedColumns: []string{"Username", "Age"},
+	})
+	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ?, Age = ? WHERE Username = ?", query)
 }
 
 func TestPatchStruct(t *testing.T) {

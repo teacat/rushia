@@ -202,7 +202,7 @@ func (b Query) buildWhere(typ string) (query string, self Query) {
 }
 
 // buildUpdate 會建置 `UPDATE` 的 SQL 指令。
-func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string, self Query) {
+func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, self Query) {
 	var set string
 	beforeOptions, _ := b.buildQueryOptions()
 	query = fmt.Sprintf("UPDATE %s%s SET ", beforeOptions, b.tableName[0])
@@ -213,8 +213,26 @@ func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string, 
 			if b.isOmitted(column) {
 				continue
 			}
-			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
-				continue
+			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
+				value := reflect.ValueOf(value)
+				isZero := value.IsZero()
+				var isExcludedColumn bool
+				for _, v := range opts.ExcludedColumns {
+					if v == column {
+						isExcludedColumn = true
+						break
+					}
+				}
+				var isExcludedType bool
+				for _, v := range opts.ExcludedTypes {
+					if value.Kind() == v {
+						isExcludedType = true
+						break
+					}
+				}
+				if isZero && !isExcludedColumn && !isExcludedType {
+					continue
+				}
 			}
 			param, self := b.bindParam(value)
 			b = self
@@ -225,8 +243,26 @@ func (b Query) buildUpdate(data interface{}, skipZeroValue bool) (query string, 
 			if b.isOmitted(column) {
 				return
 			}
-			if skipZeroValue && value == reflect.Zero(reflect.TypeOf(value)).Interface() {
-				return
+			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
+				value := reflect.ValueOf(value)
+				isZero := value.IsZero()
+				var isExcludedColumn bool
+				for _, v := range opts.ExcludedColumns {
+					if v == column {
+						isExcludedColumn = true
+						break
+					}
+				}
+				var isExcludedType bool
+				for _, v := range opts.ExcludedTypes {
+					if value.Kind() == v {
+						isExcludedType = true
+						break
+					}
+				}
+				if isZero && !isExcludedColumn && !isExcludedType {
+					return
+				}
 			}
 			param, self := b.bindParam(value)
 			b = self
@@ -682,16 +718,30 @@ func (b Query) Replace(data interface{}) (query string, params []interface{}) {
 
 // Update 會以指定的資料來更新相對應的資料列。
 func (b Query) Update(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildUpdate(data, false)
+	query, self := b.buildUpdate(data, PatchOptions{})
 	b = self
 	b.query = query
 	query, params = b.runQuery()
 	return
 }
 
+// PatchOptions 是片段更新的設置選項。
+type PatchOptions struct {
+	// ExcludedTypes 表示除外的資料型態。如果 `reflect.Bool` 是除外型態，那麼當該欄位為 `false` 時，則會照樣更新。
+	ExcludedTypes []reflect.Kind
+	// ExcludedColumns 是除外欄位名稱。如果 `Age` 是除外欄位，那麼當該欄位為 `0` 時，則照樣會更新。
+	ExcludedColumns []string
+}
+
 // Patch 會以片段更新的方式處理傳入的資料，任何零值會被忽略而不納入更新範圍。
-func (b Query) Patch(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildUpdate(data, true)
+func (b Query) Patch(data interface{}, opts ...PatchOptions) (query string, params []interface{}) {
+	var opt PatchOptions
+	if len(opts) == 0 {
+		opt = PatchOptions{}
+	} else {
+		opt = opts[0]
+	}
+	query, self := b.buildUpdate(data, opt)
 	b = self
 	b.query = query
 	query, params = b.runQuery()
