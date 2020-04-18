@@ -253,6 +253,22 @@ db.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
 // 等效於：UPDATE Users SET Password = ? WHERE Username = ?
 ```
 
+如果你希望有些欄位雖然是零值（如：`false`、`0`）但仍該在 `Patch` 時照樣更新，那麼就可以傳入一個 `PatchOptions` 選項。`ExcludedTypes` 表示欲排除的資料型態（如：`reflect.Bool`、`reflect.String`）、`ExcludedColumns` 表示欲忽略的欄位名稱。
+
+排除的資料型態或欄位會在零值時一樣被更新到資料庫中。
+
+```go
+db.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
+	"Age": 0,
+	"Username": "",
+	"Password": "123456",
+}, PatchOptions{
+	ExcludedTypes: []reflect.Kind{reflect.Int},
+	ExcludedColumns: []string{"Username"},
+})
+// 等效於：UPDATE Users SET Age = ?, Password = ?, Username = ? WHERE Username = ?
+```
+
 ## 選擇與取得
 
 最基本的資料取得在 Rushia 中透過 `Select` 使用。
