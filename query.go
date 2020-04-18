@@ -215,27 +215,22 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 			}
 			reflectValue := reflect.ValueOf(value)
 			isZero := reflectValue.IsZero()
-			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
-				var isExcludedColumn bool
-				for _, v := range opts.ExcludedColumns {
-					if v == column {
-						isExcludedColumn = true
-						break
-					}
-				}
-				var isExcludedType bool
-				for _, v := range opts.ExcludedTypes {
-					if reflectValue.Kind() == v {
-						isExcludedType = true
-						break
-					}
-				}
-				if isZero && !isExcludedColumn && !isExcludedType {
-					continue
+			var isExcludedColumn bool
+			for _, v := range opts.ExcludedColumns {
+				if v == column {
+					isExcludedColumn = true
+					break
 				}
 			}
-			if isZero {
-				continue
+			var isExcludedType bool
+			for _, v := range opts.ExcludedTypes {
+				if reflectValue.Kind() == v {
+					isExcludedType = true
+					break
+				}
+			}
+			if isZero && (!isExcludedColumn && !isExcludedType) {
+				return
 			}
 			param, self := b.bindParam(value)
 			b = self
@@ -248,26 +243,21 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 			}
 			reflectValue := reflect.ValueOf(value)
 			isZero := reflectValue.IsZero()
-			if len(opts.ExcludedColumns) > 0 || len(opts.ExcludedTypes) > 0 {
-				var isExcludedColumn bool
-				for _, v := range opts.ExcludedColumns {
-					if v == column {
-						isExcludedColumn = true
-						break
-					}
-				}
-				var isExcludedType bool
-				for _, v := range opts.ExcludedTypes {
-					if reflectValue.Kind() == v {
-						isExcludedType = true
-						break
-					}
-				}
-				if isZero && !isExcludedColumn && !isExcludedType {
-					return
+			var isExcludedColumn bool
+			for _, v := range opts.ExcludedColumns {
+				if v == column {
+					isExcludedColumn = true
+					break
 				}
 			}
-			if isZero {
+			var isExcludedType bool
+			for _, v := range opts.ExcludedTypes {
+				if reflectValue.Kind() == v {
+					isExcludedType = true
+					break
+				}
+			}
+			if isZero && (!isExcludedColumn && !isExcludedType) {
 				return
 			}
 			param, self := b.bindParam(value)
