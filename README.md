@@ -259,11 +259,11 @@ db.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
 
 ```go
 db.Table("Users").Where("Username", "YamiOdymel").Patch(map[string]interface{}{
-	"Age": 0,
+	"Age":      0,
 	"Username": "",
 	"Password": "123456",
 }, PatchOptions{
-	ExcludedTypes: []reflect.Kind{reflect.Int},
+	ExcludedTypes:   []reflect.Kind{reflect.Int},
 	ExcludedColumns: []string{"Username"},
 })
 // 等效於：UPDATE Users SET Age = ?, Password = ?, Username = ? WHERE Username = ?
