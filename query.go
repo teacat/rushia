@@ -229,8 +229,8 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 					break
 				}
 			}
-			if isZero && (!isExcludedColumn && !isExcludedType) {
-				return
+			if opts.isPatch && isZero && (!isExcludedColumn && !isExcludedType) {
+				continue
 			}
 			param, self := b.bindParam(value)
 			b = self
@@ -257,7 +257,7 @@ func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, s
 					break
 				}
 			}
-			if isZero && (!isExcludedColumn && !isExcludedType) {
+			if opts.isPatch && isZero && (!isExcludedColumn && !isExcludedType) {
 				return
 			}
 			param, self := b.bindParam(value)
@@ -723,6 +723,8 @@ func (b Query) Update(data interface{}) (query string, params []interface{}) {
 
 // PatchOptions 是片段更新的設置選項。
 type PatchOptions struct {
+	// isPatch 表示這個更新是 Patch。
+	isPatch bool
 	// ExcludedTypes 表示除外的資料型態。如果 `reflect.Bool` 是除外型態，那麼當該欄位為 `false` 時，則會照樣更新。
 	ExcludedTypes []reflect.Kind
 	// ExcludedColumns 是除外欄位名稱。如果 `Age` 是除外欄位，那麼當該欄位為 `0` 時，則照樣會更新。
@@ -733,9 +735,10 @@ type PatchOptions struct {
 func (b Query) Patch(data interface{}, opts ...PatchOptions) (query string, params []interface{}) {
 	var opt PatchOptions
 	if len(opts) == 0 {
-		opt = PatchOptions{}
+		opt = PatchOptions{isPatch: true}
 	} else {
 		opt = opts[0]
+		opt.isPatch = true
 	}
 	query, self := b.buildUpdate(data, opt)
 	b = self
@@ -899,7 +902,12 @@ func (b Query) Lock(tableNames ...string) (query string, params []interface{}) {
 
 // Unlock 能解鎖已鎖上的資料表格。
 func (b Query) Unlock(tableNames ...string) (query string, params []interface{}) {
-	query, params = b.RawQuery("UNLOCK TABLES")
+	var tables string
+	for _, v := range tableNames {
+		tables += fmt.Sprintf("%s, ", v)
+	}
+	tables = trim(tables)
+	query, params = b.RawQuery(fmt.Sprintf("UNLOCK TABLES %s", tables))
 	return
 }
 
