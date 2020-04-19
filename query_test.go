@@ -33,8 +33,15 @@ func assertEqual(a *assert.Assertions, expected string, actual string) {
 
 		}
 	}
+
+	expectedLen := len(strings.Split(originalExpected, " "))
+	actualLen := len(strings.Split(originalActual, " "))
+
 	if len(passed) != len(actualParts) {
 		a.Fail(`Not equal:`, "expected: \"%s\"\nreceived: \"%s\"", originalExpected, originalActual)
+	}
+	if expectedLen != actualLen {
+		a.Fail(`Not same length:`, "expected: \"%s\"\nreceived: \"%s\"", originalExpected, originalActual)
 	}
 	return
 }
@@ -205,7 +212,7 @@ func TestUpdateOmitStruct(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := builder.Table("Users").Where("Username", "YamiOdymel").Update(map[string]interface{}{
-		"Username": "Karisu",
+		"Username": "",
 		"Password": "123456",
 	})
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
