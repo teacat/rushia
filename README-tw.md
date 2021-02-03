@@ -285,18 +285,15 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.
 // 等效於：UPDATE Users SET Password = ? WHERE Username = ?
 ```
 
-如果你希望有些欄位雖然是零值（如：`false`、`0`）但仍該在 `Patch` 時照樣更新，那麼就可以傳入一個 `PatchOptions` 選項。`ExcludedTypes` 表示欲排除的資料型態（如：`reflect.Bool`、`reflect.String`）、`ExcludedColumns` 表示欲忽略的欄位名稱。
+如果你希望有些欄位雖然是零值（如：`false`、`0`）但仍該在 `Patch` 時照樣更新，那麼就可以使用 `Exclude`。傳入資料型態（如：`reflect.Bool`、`reflect.String`）來以型態排除特定欄位、而字串則表示欲忽略的欄位名稱。
 
 排除的資料型態或欄位會在零值時一樣被更新到資料庫中。
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.H{
+rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
 	"Age":      0,
 	"Username": "",
 	"Password": "123456",
-}, PatchOptions{
-	ExcludedTypes:   []reflect.Kind{reflect.Int},
-	ExcludedColumns: []string{"Username"},
 })
 // 等效於：UPDATE Users SET Age = ?, Password = ?, Username = ? WHERE Username = ?
 ```

@@ -78,7 +78,7 @@ Since Rushia is just a SQL Builder, you are able to use it with any other databa
 db := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
 
 // Build the query via Rushia.
-q := rushia.NewQuery("Users").Where("Username", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // Pass the query and the parameters to SQLX to execute.
@@ -93,7 +93,7 @@ Or [go-gorm/gorm](https://github.com/go-gorm/gorm) if you like:
 db, err := gorm.Open(mysql.Open("root:password@tcp(localhost:3306)/db"), &gorm.Config{})
 
 // Build the query via Rushia.
-q := rushia.NewQuery("Users").Where("Username", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // Pass the query and the parameters to Gorm to execute.
@@ -267,7 +267,7 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 To update a data in Rushia is easy as a rocket launch (wat? (todo: update this description later)).
 
 ```go
-rushia.NewQuery("Users").Where("Username", "YamiOdymel").Update(rushia.H{
+rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Update(rushia.H{
 	"Username": "Karisu",
 	"Password": "123456",
 })
@@ -279,7 +279,7 @@ rushia.NewQuery("Users").Where("Username", "YamiOdymel").Update(rushia.H{
 By using `Patch`, it's possible to ignore the zero value fields while updating.
 
 ```go
-rushia.NewQuery("Users").Where("Username", "YamiOdymel").Patch(rushia.H{
+rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.H{
 	"Age": 0,
 	"Username": "",
 	"Password": "123456",
@@ -292,7 +292,7 @@ With `Exclude`, you can also exclude the fields to force it update even if it's 
 Any fields that was excluded will still be updated even if it's a zero value.
 
 ```go
-rushia.NewQuery("Users").Where("Username", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
+rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
 	"Age":      0,
 	"Username": "",
 	"Password": "123456",
@@ -305,7 +305,7 @@ rushia.NewQuery("Users").Where("Username", "YamiOdymel").Exclude("Username", ref
 Deletes everything! Remember to add a condition to prevent it really deletes everything.
 
 ```go
-rushia.NewQuery("Users").Where("ID", 1).Delete()
+rushia.NewQuery("Users").WhereValue("ID", "=", 1).Delete()
 // Equals: DELETE FROM Users WHERE ID = ?
 ```
 
@@ -490,7 +490,7 @@ Rushia supports nested query which is called Sub Query. Use a query as a value t
 ```go
 subQuery := rushia.NewQuery("VIPUsers").Select("UserID")
 
-rushia.NewQuery("Users").Where("ID", "IN", subQuery).Select()
+rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
 // Equals: SELECT * FROM Users WHERE ID IN (SELECT UserID FROM VIPUsers)
 ```
 
@@ -499,7 +499,7 @@ rushia.NewQuery("Users").Where("ID", "IN", subQuery).Select()
 To insert a value from a sub query, simply use the query as a value.
 
 ```go
-subQuery := rushia.NewQuery("Users").Where("ID", 6).Select("Name")
+subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).Select("Name")
 
 rushia.NewQuery("Products").Insert(rushia.H{
 	"ProductName": "測試商品",
@@ -514,7 +514,7 @@ rushia.NewQuery("Products").Insert(rushia.H{
 Join a table from a sub query is possible, but requires to assign an alias to the sub query by using `As`.
 
 ```go
-subQuery := rushia.NewQuery("Users").As("Users").Where("Active", 1).Select()
+subQuery := rushia.NewQuery("Users").As("Users").WhereValue("Active", "=", 1).Select()
 
 rushia.
 	NewQuery("Products").
