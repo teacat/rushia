@@ -1,65 +1,216 @@
 package rushia
 
 import (
-	"fmt"
-	"strings"
+	"errors"
+	"reflect"
 )
 
-// NewQuery 會建立一個新的 SQL 建置工具。
-func NewQuery() Query {
-	return Query{}
+var (
+	// ErrQueryTypeUnspecified
+	ErrQueryTypeUnspecified = errors.New("rushia: query type unspecified")
+)
+
+// Expr
+type Expr struct {
+	rawQuery string
+	params   []interface{}
 }
 
-// NewSubQuery 會建立一個新的子指令（Sub Query），這讓你可以將子指令傳入其他的條件式（例如：`WHERE`），
-// 若欲將子指令傳入插入（Join）條件中，必須在參數指定此子指令的別名。
-func NewSubQuery(alias ...string) SubQuery {
-	subQuery := SubQuery{
-		query: NewQuery(),
+// H
+type H map[string]interface{}
+
+const (
+	queryTypeUnknown queryType = iota
+	queryTypeInsert
+	queryTypeReplace
+	queryTypeUpdate
+	queryTypeSelect
+	queryTypePatch
+	queryTypeExists
+	queryTypeInsertSelect
+	queryTypeRawQuery
+	queryTypeSubQuery
+	queryTypeDelete
+)
+
+type queryType int
+
+const (
+	connectorTypeAnd connectorType = iota
+	connectorTypeOr
+)
+
+type connectorType int
+
+func (t connectorType) toQuery() string {
+	switch t {
+	case connectorTypeOr:
+		return "OR"
+	default:
+		return "AND"
 	}
-	if len(alias) > 0 {
-		subQuery.query.alias = alias[0]
-	}
-	return subQuery
 }
 
-// NewTimestamp 會建立一個新的 SQL 時間戳記輔助工具。
-func NewTimestamp() Timestamp {
-	return Timestamp{}
-}
+const (
+	joinTypeLeft joinType = iota
+	joinTypeRight
+	joinTypeInner
+	joinTypeNatural
+	joinTypeCross
+)
 
-// NewMigration 會建立表格 SQL 輔助工具。
-func NewMigration() Migration {
-	return Migration{}
-}
+type joinType int
 
-// NewFunc 會基於參數來返回一個新的 SQL 資料庫函式，
-// 這能夠當作函式放置於查詢指令中，而不會被當作普通的資料執行。
-func NewFunc(query string, data ...interface{}) Function {
-	return Function{
-		query:  query,
-		values: data,
+func (t joinType) toQuery() string {
+	switch t {
+	case joinTypeRight:
+		return "RIGHT JOIN"
+	case joinTypeInner:
+		return "INNER JOIN"
+	case joinTypeNatural:
+		return "NATURAL JOIN"
+	case joinTypeCross:
+		return "CROSS JOIN"
+	default:
+		return "LEFT JOIN"
 	}
 }
 
-// NewNow 會回傳一個基於 `INTERVAL` 的 SQL 資料庫函式，
-// 傳入的參數格式可以是 `+1Y`、`-2M`，同時也可以像 `Now("+1Y", "-2M")` 一樣地串連使用。
-// 支援的格式為：`Y`(年)、`M`(月)、`D`(日)、`W`(星期)、`h`(小時)、`m`(分鐘)、`s`(秒數)。
-func NewNow(formats ...string) Function {
-	query := "NOW() "
-	unitMap := map[string]string{
-		"Y": "YEAR",
-		"M": "MONTH",
-		"D": "DAY",
-		"W": "WEEK",
-		"h": "HOUR",
-		"m": "MINUTE",
-		"s": "SECOND",
+const (
+	insertTypeInsert insertType = iota
+	insertTypeReplace
+)
+
+type insertType int
+
+func (t insertType) toQuery() string {
+	switch t {
+	case insertTypeReplace:
+		return "REPLACE"
+	default:
+		return "INSERT"
 	}
-	for _, v := range formats {
-		operator := string(v[0])
-		interval := v[1 : len(v)-1]
-		unit := string(v[len(v)-1])
-		query += fmt.Sprintf("%s INTERVAL %s %s ", operator, interval, unitMap[unit])
+}
+
+type condition struct {
+	args      []interface{}
+	connector connectorType
+}
+
+type join struct {
+	table    string
+	subQuery *Query
+	typ      joinType
+
+	conditions []condition
+}
+
+type limit struct {
+	from  int
+	count int
+}
+
+type offset struct {
+	count  int
+	offset int
+}
+
+type order struct {
+	field  string
+	values []interface{}
+
+	column string
+	// sort orderSortType
+}
+
+type exclude struct {
+	kinds  []reflect.Kind
+	fields []string
+}
+
+type union struct {
+	all   bool
+	query *Query
+}
+
+// Query
+type Query struct {
+	alias string
+
+	typ      queryType
+	subQuery *Query
+
+	query string
+
+	table        interface{}
+	wheres       []condition
+	havings      []condition
+	queryOptions []string
+
+	unions []union
+
+	data interface{}
+
+	selects []interface{}
+
+	joins     []join
+	duplicate H
+
+	limit  limit
+	offset offset
+
+	orders []order
+
+	groups []string
+
+	rawQuery string
+	params   []interface{}
+
+	omits   []string
+	exclude exclude
+}
+
+// NewQuery creates a Query based on a table name or a sub query.
+func NewQuery(table interface{}) *Query {
+	q := &Query{
+		table: table,
 	}
-	return NewFunc(strings.TrimSpace(query))
+	return q
+}
+
+// NewRawQuery creates a Query based on the passed in raw query and the parameters.
+func NewRawQuery(q string, params ...interface{}) *Query {
+	return &Query{
+		typ:      queryTypeRawQuery,
+		rawQuery: q,
+		params:   params,
+	}
+}
+
+// NewExpr creates an Expression that accepts raw query and the parameters. Could be useful as the value if you are representing a complex query.
+func NewExpr(query string, params ...interface{}) *Expr {
+	return &Expr{
+		rawQuery: query,
+		params:   params,
+	}
+}
+
+// Build builds the Query.
+func Build(q *Query) (query string, params []interface{}) {
+	query += q.padSpace(q.buildQuery())
+	if q.typ == queryTypeRawQuery || q.typ == queryTypeExists {
+		return q.trim(query), q.params
+	}
+	query += q.padSpace(q.buildAs())
+	query += q.padSpace(q.buildDuplicate())
+	query += q.padSpace(q.buildJoin())
+	query += q.padSpace(q.buildWhere())
+	query += q.padSpace(q.buildHaving())
+	query += q.padSpace(q.buildOrderBy())
+	query += q.padSpace(q.buildGroupBy())
+	query += q.padSpace(q.buildLimit())
+	query += q.padSpace(q.buildOffset())
+	query += q.padSpace(q.buildUnion())
+	query += q.padSpace(q.buildAfterQueryOptions())
+	return q.trim(query), q.params
 }

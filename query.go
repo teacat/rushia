@@ -1,932 +1,282 @@
 package rushia
 
 import (
-	"fmt"
 	"reflect"
-	"strings"
 )
 
-// Function 重現了一個像 `SHA(?)` 或 `NOW()` 的資料庫函式。
-type Function struct {
-	query  string
-	values []interface{}
+// Copy
+func (q *Query) Copy() *Query {
+	a := *q
+	b := a
+	return &b
 }
 
-// condition 是一個 `WHERE` 或 `HAVING` 的條件式。
-type condition struct {
-	args      []interface{}
-	connector string
+// Insert
+func (q *Query) Insert(v interface{}) *Query {
+	q.typ = queryTypeInsert
+	q.data = v
+	return q
 }
 
-// order 是個基於 `ORDER` 的排序資訊。
-type order struct {
-	column string
-	args   []interface{}
+// Replace
+func (q *Query) Replace(v interface{}) *Query {
+	q.typ = queryTypeReplace
+	q.data = v
+	return q
 }
 
-// join 帶有資料表格的加入資訊。
-type join struct {
-	typ        string
-	query      string
-	table      interface{}
-	condition  string
-	conditions []condition
+// Update
+func (q *Query) Update(v interface{}) *Query {
+	q.typ = queryTypeUpdate
+	q.data = v
+	return q
 }
 
-// Query 是個資料庫的 SQL 指令建置系統，同時也帶有資料庫的連線資料。
-type Query struct {
-	// alias 是作為子指令時所帶有的別名，這會用在子指令資料表格的加入上。
-	alias string
-	// destination 呈現了資料的映射目的地指針。
-	destination        interface{}
-	tableName          []string
-	conditions         []condition
-	havingConditions   []condition
-	queryOptions       []string
-	joins              []join
-	onDuplicateColumns []string
-	lastInsertIDColumn string
-	limit              []int
-	offset             []int
-	orders             []order
-	groupBy            []string
-	lockMethod         string
-	query              string
-	params             []interface{}
-	omits              []string
+// Select
+func (q *Query) Select(columns ...interface{}) *Query {
+	q.typ = queryTypeSelect
+	q.selects = columns
+	return q
 }
 
-//=======================================================
-// 保存函式
-//=======================================================
+// SelectOne
+func (q *Query) SelectOne(columns ...interface{}) *Query {
+	q.Limit(1)
+	q.typ = queryTypeSelect
+	q.selects = columns
+	return q
+}
 
-// saveJoin 會保存資料表格的加入資訊。
-func (b Query) saveJoin(table interface{}, typ string, condition string) Query {
-	var query string
-	switch v := table.(type) {
-	// 子指令加入。
-	case SubQuery:
-		query = v.query.query
-	// 普通的表格加入。
-	case string:
-		query = v
+// Patch
+func (q *Query) Patch(v interface{}) *Query {
+	q.typ = queryTypePatch
+	q.data = v
+	return q
+}
+
+// Exists
+func (q *Query) Exists() *Query {
+	q.typ = queryTypeExists
+	return q
+}
+
+// InsertSelect
+func (q *Query) InsertSelect(qu *Query, columns ...interface{}) *Query {
+	q.typ = queryTypeInsertSelect
+	q.subQuery = qu
+	q.selects = columns
+	return q
+}
+
+// Delete
+func (q *Query) Delete() *Query {
+	q.typ = queryTypeDelete
+	return q
+}
+
+// Omit
+func (q *Query) Omit(fields ...string) *Query {
+	q.omits = append(q.omits, fields...)
+	return q
+}
+
+// OnDuplicate
+func (q *Query) OnDuplicate(v H) *Query {
+	if q.duplicate == nil {
+		q.duplicate = make(H)
 	}
+	for k, j := range v {
+		q.duplicate[k] = j
+	}
+	return q
+}
 
-	b.joins = append(b.joins, join{
-		query:     query,
-		typ:       typ,
-		table:     table,
-		condition: condition,
+// Exclude
+func (q *Query) Exclude(fields ...interface{}) *Query {
+	for _, v := range fields {
+		switch j := v.(type) {
+		case reflect.Kind:
+			q.exclude.kinds = append(q.exclude.kinds, j)
+		case string:
+			q.exclude.fields = append(q.exclude.fields, j)
+		}
+	}
+	return q
+}
+
+// Limit
+func (q *Query) Limit(from int, count ...int) *Query {
+	q.limit.from = from
+	if len(count) > 0 {
+		q.limit.count = count[0]
+	}
+	return q
+}
+
+// As
+func (q *Query) As(alias string) *Query {
+	q.alias = alias
+	return q
+}
+
+// Offset
+func (q *Query) Offset(count int, offset int) *Query {
+	q.offset.count = count
+	q.offset.offset = offset
+	return q
+}
+
+// Having
+func (q *Query) Having(args ...interface{}) *Query {
+	q.havings = append(q.havings, condition{
+		args:      args,
+		connector: connectorTypeAnd,
 	})
-	return b
+	return q
 }
 
-// saveJoinCondition 會將資料表格的加入條件式資訊保存到指定的資料表格加入資訊中。
-func (b Query) saveJoinCondition(connector string, table interface{}, args ...interface{}) Query {
-	var query string
-	switch v := table.(type) {
-	// 子指令條件式。
-	case SubQuery:
-		query = v.query.query
-	// 普通條件式。
-	case string:
-		query = v
-	}
-
-	var joins []join
-	for _, v := range b.joins {
-		if v.query == query {
-			v.conditions = append(v.conditions, condition{
-				args:      args,
-				connector: connector,
-			})
-		}
-		joins = append(joins, v)
-	}
-	b.joins = joins
-	return b
+// OrHaving
+func (q *Query) OrHaving(args ...interface{}) *Query {
+	q.havings = append(q.havings, condition{
+		args:      args,
+		connector: connectorTypeOr,
+	})
+	return q
 }
 
-// saveCondition 會保存欄位的查詢條件。
-func (b Query) saveCondition(typ, connector string, args ...interface{}) Query {
-	var c condition
-	c.connector = connector
-	c.args = args
-	if typ == "HAVING" {
-		b.havingConditions = append(b.havingConditions, c)
-	} else {
-		b.conditions = append(b.conditions, c)
-	}
-	return b
+// Where
+func (q *Query) Where(args ...interface{}) *Query {
+	q.wheres = append(q.wheres, condition{
+		args:      args,
+		connector: connectorTypeAnd,
+	})
+	return q
 }
 
-//=======================================================
-// 參數函式
-//=======================================================
-
-// bindParams 會將接收到的多個變數綁定到本次的建置工作中，並且產生、回傳相對應的 SQL 指令片段。
-func (b Query) bindParams(data []interface{}) (query string, self Query) {
-	for _, v := range data {
-		param, self := b.bindParam(v)
-		b = self
-		query += fmt.Sprintf("%s, ", param)
-	}
-	query = trim(query)
-	return query, b
+// OrWhere
+func (q *Query) OrWhere(args ...interface{}) *Query {
+	q.wheres = append(q.wheres, condition{
+		args:      args,
+		connector: connectorTypeOr,
+	})
+	return q
 }
 
-// bindParam 會將單個傳入的變數綁定到本次的建置工作中，並且依照變數型態來產生並回傳相對應的 SQL 指令片段與決定是否要以括號包覆。
-func (b Query) bindParam(data interface{}, parentheses ...bool) (param string, self Query) {
-	switch v := data.(type) {
-	case SubQuery:
-		if len(v.query.params) > 0 {
-			b.params = append(b.params, v.query.params...)
-		}
-	case Function:
-		if len(v.values) > 0 {
-			b.params = append(b.params, v.values...)
-		}
-	case nil:
-	case Timestamp:
-		b.params = append(b.params, v.value)
-	default:
-		b.params = append(b.params, data)
-	}
-	param = b.paramToQuery(data, parentheses...)
-	return param, b
+// JoinWhere
+func (q *Query) JoinWhere(args ...interface{}) *Query {
+	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
+		args:      args,
+		connector: connectorTypeAnd,
+	})
+	return q
 }
 
-// paramToQuery 會將參數的變數資料型態轉換成 SQL 指令片段，並決定是否要加上括號。
-func (b Query) paramToQuery(data interface{}, parentheses ...bool) (param string) {
-	switch v := data.(type) {
-	case SubQuery:
-		if len(parentheses) > 0 {
-			if parentheses[0] == false {
-				param = fmt.Sprintf("%s", v.query.query)
-			}
-		} else {
-			param = fmt.Sprintf("(%s)", v.query.query)
-		}
-	case Function:
-		param = v.query
-	case nil:
-		param = "NULL"
-	default:
-		param = "?"
-	}
-	return
+// OrJoinWhere
+func (q *Query) OrJoinWhere(args ...interface{}) *Query {
+	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
+		args:      args,
+		connector: connectorTypeOr,
+	})
+	return q
 }
 
-//=======================================================
-// 建置函式
-//=======================================================
-
-// buildWhere 會基於目前所擁有的條件式來建置一串 `WHERE` 和 `HAVING` 的 SQL 指令。
-func (b Query) buildWhere(typ string) (query string, self Query) {
-	var conditions []condition
-	if typ == "HAVING" {
-		conditions = b.havingConditions
-		query = "HAVING "
-	} else {
-		conditions = b.conditions
-		query = "WHERE "
-	}
-	if len(conditions) == 0 {
-		query = ""
-		return query, b
-	}
-	conditionQuery, self := b.buildConditions(conditions)
-	b = self
-	query += conditionQuery
-	return query, b
+// Distinct
+func (q *Query) Distinct() *Query {
+	q.SetQueryOption("DISTINCT")
+	return q
 }
 
-// buildUpdate 會建置 `UPDATE` 的 SQL 指令。
-func (b Query) buildUpdate(data interface{}, opts PatchOptions) (query string, self Query) {
-	var set string
-	beforeOptions, _ := b.buildQueryOptions()
-	query = fmt.Sprintf("UPDATE %s%s SET ", beforeOptions, b.tableName[0])
+// Union
+func (q *Query) Union(qu *Query) *Query {
+	q.unions = append(q.unions, union{
+		query: qu,
+	})
+	return q
+}
 
-	switch realData := data.(type) {
-	case map[string]interface{}:
-		for column, value := range realData {
-			if b.isOmitted(column) {
-				continue
-			}
-			reflectValue := reflect.ValueOf(value)
-			isZero := reflectValue.IsZero()
-			var isExcludedColumn bool
-			for _, v := range opts.ExcludedColumns {
-				if v == column {
-					isExcludedColumn = true
-					break
-				}
-			}
-			var isExcludedType bool
-			for _, v := range opts.ExcludedTypes {
-				if reflectValue.Kind() == v {
-					isExcludedType = true
-					break
-				}
-			}
-			if opts.isPatch && isZero && (!isExcludedColumn && !isExcludedType) {
-				continue
-			}
-			param, self := b.bindParam(value)
-			b = self
-			set += fmt.Sprintf("%s = %s, ", column, param)
-		}
-	default:
-		b.rangeStruct(realData, func(column string, value interface{}) {
-			if b.isOmitted(column) {
-				return
-			}
-			reflectValue := reflect.ValueOf(value)
-			isZero := reflectValue.IsZero()
-			var isExcludedColumn bool
-			for _, v := range opts.ExcludedColumns {
-				if v == column {
-					isExcludedColumn = true
-					break
-				}
-			}
-			var isExcludedType bool
-			for _, v := range opts.ExcludedTypes {
-				if reflectValue.Kind() == v {
-					isExcludedType = true
-					break
-				}
-			}
-			if opts.isPatch && isZero && (!isExcludedColumn && !isExcludedType) {
-				return
-			}
-			param, self := b.bindParam(value)
-			b = self
-			set += fmt.Sprintf("%s = %s, ", column, param)
+// UnionAll
+func (q *Query) UnionAll(qu *Query) *Query {
+	q.unions = append(q.unions, union{
+		query: qu,
+		all:   true,
+	})
+	return q
+}
+
+// OrderBy
+func (q *Query) OrderBy(columns ...string) *Query {
+	for _, v := range columns {
+		q.orders = append(q.orders, order{
+			column: v,
 		})
 	}
-	query += fmt.Sprintf("%s ", trim(set))
-	return query, b
+	return q
 }
 
-// buildLimit 會建置 `LIMIT` 的 SQL 指令。
-func (b Query) buildLimit() (query string) {
-	switch len(b.limit) {
-	case 0:
-		return
-	case 1:
-		query = fmt.Sprintf("LIMIT %d ", b.limit[0])
-	case 2:
-		query = fmt.Sprintf("LIMIT %d, %d ", b.limit[0], b.limit[1])
-	}
-	return
-}
-
-// buildOffset 會建置 `LIMIT OFFSET` 的 SQL 指令。
-func (b Query) buildOffset() (query string) {
-	if len(b.offset) < 2 {
-		return
-	}
-	query = fmt.Sprintf("LIMIT %d OFFSET %d ", b.offset[0], b.offset[1])
-	return
-}
-
-// buildSelect 會建置 `SELECT` 的 SQL 指令。
-func (b Query) buildSelect(columns ...string) (query string) {
-	beforeOptions, _ := b.buildQueryOptions()
-
-	if len(columns) == 0 {
-		query = fmt.Sprintf("SELECT %s* FROM %s ", beforeOptions, b.tableName[0])
-	} else {
-		query = fmt.Sprintf("SELECT %s%s FROM %s ", beforeOptions, strings.Join(columns, ", "), b.tableName[0])
-	}
-	return
-}
-
-// buildConditions 會將傳入的條件式轉換成指定的 `WHERE` 或 `HAVING` SQL 指令。
-func (b Query) buildConditions(conditions []condition) (query string, self Query) {
-	for i, v := range conditions {
-		// 如果不是第一個條件式的話，那麼就增加連結語句。
-		if i != 0 {
-			query += fmt.Sprintf("%s ", v.connector)
-		}
-
-		// 取得欄位名稱的種類，有可能是個 SQL 指令或普通的欄位名稱、甚至是子指令。
-		var typ string
-		switch q := v.args[0].(type) {
-		case string:
-			if strings.Contains(q, "?") || strings.Contains(q, "(") || len(v.args) == 1 {
-				typ = "Query"
-			} else {
-				typ = "Column"
-			}
-		case SubQuery:
-			typ = "SubQuery"
-		}
-
-		// 基於種類來建置相對應的條件式。
-		switch len(v.args) {
-		// .Where("Column = Column")
-		case 1:
-			query += fmt.Sprintf("%s ", v.args[0].(string))
-		// .Where("Column = ?", "Value")
-		// .Where("Column", "Value")
-		// .Where(subQuery, "EXISTS")
-		case 2:
-			switch typ {
-			case "Query":
-				query += fmt.Sprintf("%s ", v.args[0].(string))
-				_, self := b.bindParam(v.args[1])
-				b = self
-			case "Column":
-				switch d := v.args[1].(type) {
-				case Timestamp:
-					param, self := b.bindParam(d)
-					b = self
-					query += fmt.Sprintf(d.query, v.args[0].(string), param)
-				default:
-					param, self := b.bindParam(d)
-					b = self
-					query += fmt.Sprintf("%s = %s ", v.args[0].(string), param)
-				}
-			case "SubQuery":
-				param, self := b.bindParam(v.args[0])
-				b = self
-				query += fmt.Sprintf("%s %s ", v.args[1].(string), param)
-			}
-		// .Where("Column", ">", "Value")
-		// .Where("Column", "IN", subQuery)
-		// .Where("Column", "IS", nil)
-		case 3:
-			if typ == "Query" {
-				query += fmt.Sprintf("%s ", v.args[0].(string))
-				_, self := b.bindParams(v.args[1:])
-				b = self
-			} else {
-				if v.args[1].(string) == "IN" || v.args[1].(string) == "NOT IN" {
-					param, self := b.bindParam(v.args[2], false)
-					b = self
-					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), param)
-				} else {
-					param, self := b.bindParam(v.args[2])
-					b = self
-					query += fmt.Sprintf("%s %s %s ", v.args[0].(string), v.args[1].(string), param)
-				}
-			}
-		// .Where("(Column = ? OR Column = SHA(?))", "Value", "Value")
-		// .Where("Column", "BETWEEN", 1, 20)
-		default:
-			if typ == "Query" {
-				query += fmt.Sprintf("%s ", v.args[0].(string))
-				_, self := b.bindParams(v.args[1:])
-				b = self
-			} else {
-				switch v.args[1].(string) {
-				case "BETWEEN", "NOT BETWEEN":
-					param, self := b.bindParam(v.args[2])
-					b = self
-					param2, self := b.bindParam(v.args[3])
-					b = self
-					query += fmt.Sprintf("%s %s %s AND %s ", v.args[0].(string), v.args[1].(string), param, param2)
-				case "IN", "NOT IN":
-					param, self := b.bindParams(v.args[2:])
-					b = self
-					query += fmt.Sprintf("%s %s (%s) ", v.args[0].(string), v.args[1].(string), param)
-				}
-			}
-		}
-	}
-	return query, b
-}
-
-// buildDelete 會建置 `DELETE` 的 SQL 指令。
-func (b Query) buildDelete(tableNames ...string) (query string) {
-	beforeOptions, _ := b.buildQueryOptions()
-	query += fmt.Sprintf("DELETE %sFROM %s ", beforeOptions, strings.Join(tableNames, ", "))
-	return
-}
-
-// buildQueryOptions 依照以保存的語句選項來建置執行選項的 SQL 指令片段。
-// 這會回傳兩個 SQL 指令片段，分別是放在整體 SQL 指令的前面與後面。
-func (b Query) buildQueryOptions() (before string, after string) {
-	for _, v := range b.queryOptions {
-		switch v {
-		case "ALL", "DISTINCT", "SQL_CACHE", "SQL_NO_CACHE", "DISTINCTROW", "HIGH_PRIORITY", "STRAIGHT_JOIN", "SQL_SMALL_RESULT", "SQL_BIG_RESULT", "SQL_BUFFER_RESULT", "SQL_CALC_FOUND_ROWS", "LOW_PRIORITY", "QUICK", "IGNORE", "DELAYED":
-			before += fmt.Sprintf("%s, ", v)
-		case "FOR UPDATE", "LOCK IN SHARE MODE":
-			after += fmt.Sprintf("%s, ", v)
-		}
-	}
-	if before != "" {
-		before = fmt.Sprintf("%s ", trim(before))
-	}
-	if after != "" {
-		after = fmt.Sprintf("%s ", trim(after))
-	}
-	return
-}
-
-// buildQuery 會將所有建置工作串連起來並且依序執行來建置整個可用的 SQL 指令。
-func (b Query) buildQuery() Query {
-	b.query += b.buildDuplicate()
-	query, self := b.buildJoin()
-	b = self
-	b.query += query
-	query, self = b.buildWhere("WHERE")
-	b = self
-	b.query += query
-	query, self = b.buildWhere("HAVING")
-	b = self
-	b.query += query
-	query, self = b.buildOrderBy()
-	b = self
-	b.query += query
-	b.query += b.buildGroupBy()
-	b.query += b.buildLimit()
-	b.query += b.buildOffset()
-	_, afterOptions := b.buildQueryOptions()
-	b.query += afterOptions
-	b.query = strings.TrimSpace(b.query)
-	return b
-}
-
-// buildOrderBy 會基於現有的排序資料來建置 `ORDERY BY` 的 SQL 指令。
-func (b Query) buildOrderBy() (query string, self Query) {
-	if len(b.orders) == 0 {
-		return query, b
-	}
-	query += "ORDER BY "
-	for _, v := range b.orders {
-		switch len(v.args) {
-		// .OrderBy("RAND()")
-		case 0:
-			query += fmt.Sprintf("%s, ", v.column)
-		// .OrderBy("ID", "ASC")
-		case 1:
-			query += fmt.Sprintf("%s %s, ", v.column, v.args[0])
-		// .OrderBy("UserGroup", "ASC", "SuperUser", "Admin")
-		default:
-			param, self := b.bindParams(v.args[1:])
-			b = self
-			query += fmt.Sprintf("FIELD (%s, %s) %s, ", v.column, param, v.args[0])
-		}
-	}
-	query = trim(query) + " "
-	return query, b
-}
-
-// buildGroupBy 會建置 `GROUP BY` 的 SQL 指令。
-func (b Query) buildGroupBy() (query string) {
-	if len(b.groupBy) == 0 {
-		return
-	}
-	query += "GROUP BY "
-	for _, v := range b.groupBy {
-		query += fmt.Sprintf("%s, ", v)
-	}
-	query = trim(query) + " "
-	return
-}
-
-// buildDuplicate 會建置 `ON DUPLICATE KEY UPDATE` 的 SQL 指令。
-func (b Query) buildDuplicate() (query string) {
-	if len(b.onDuplicateColumns) == 0 {
-		return
-	}
-	query += "ON DUPLICATE KEY UPDATE "
-	if b.lastInsertIDColumn != "" {
-		query += fmt.Sprintf("%s=LAST_INSERT_ID(%s), ", b.lastInsertIDColumn, b.lastInsertIDColumn)
-	}
-	for _, v := range b.onDuplicateColumns {
-		query += fmt.Sprintf("%s = VALUES(%s), ", v, v)
-	}
-	query = trim(query)
-	return
-}
-
-// rangeStruct 會遍歷整個結構體的欄位名稱與其值。
-func (b Query) rangeStruct(s interface{}, handler func(column string, value interface{})) {
-	t := reflect.TypeOf(s)
-	v := reflect.ValueOf(s)
-	for i := 0; i < t.NumField(); i++ {
-		if value, ok := t.Field(i).Tag.Lookup("rushia"); ok {
-			if value == "" || value == "-" {
-				continue
-			}
-			handler(value, v.Field(i).Interface())
-		} else {
-			handler(t.Field(i).Name, v.Field(i).Interface())
-		}
-	}
-}
-
-// isOmitted 會回傳指定欄位是否被指定為忽略。
-func (b Query) isOmitted(field string) bool {
-	for _, v := range b.omits {
-		if v == field {
-			return true
-		}
-	}
-	return false
-}
-
-// buildInsert 會建置 `INSERT INTO` 的 SQL 指令。
-func (b Query) buildInsert(operator string, data interface{}) (query string, self Query) {
-	var columns, values string
-	beforeOptions, _ := b.buildQueryOptions()
-
-	// 會基於資料型態建置不同的指令。
-	switch realData := data.(type) {
-	case map[string]interface{}:
-		for column, value := range realData {
-			if b.isOmitted(column) {
-				continue
-			}
-			columns += fmt.Sprintf("%s, ", column)
-			param, self := b.bindParam(value)
-			b = self
-			values += fmt.Sprintf("%s, ", param)
-		}
-		values = fmt.Sprintf("(%s)", trim(values))
-
-	case []map[string]interface{}:
-		var columnNames []string
-		// 先取得欄位的名稱，這樣才能照順序遍歷整個 `map`。
-		for name := range realData[0] {
-			if b.isOmitted(name) {
-				continue
-			}
-			columnNames = append(columnNames, name)
-			// 先建置欄位名稱的 SQL 指令片段。
-			columns += fmt.Sprintf("%s, ", name)
-		}
-		for _, single := range realData {
-			var currentValues string
-			for _, name := range columnNames {
-				param, self := b.bindParam(single[name])
-				b = self
-				currentValues += fmt.Sprintf("%s, ", param)
-			}
-			values += fmt.Sprintf("(%s), ", trim(currentValues))
-		}
-		values = trim(values)
-
-	default:
-		b.rangeStruct(realData, func(column string, value interface{}) {
-			if b.isOmitted(column) {
-				return
-			}
-			columns += fmt.Sprintf("%s, ", column)
-			param, self := b.bindParam(value)
-			b = self
-			values += fmt.Sprintf("%s, ", param)
-		})
-		values = fmt.Sprintf("(%s)", trim(values))
-	}
-	columns = trim(columns)
-	query = fmt.Sprintf("%s %sINTO %s (%s) VALUES %s ", operator, beforeOptions, b.tableName[0], columns, values)
-	return query, b
-}
-
-// buildJoin 會建置資料表的插入 SQL 指令。
-func (b Query) buildJoin() (query string, self Query) {
-	for _, v := range b.joins {
-		// 插入的種類（例如：`LEFT JOIN`、`RIGHT JOIN`、`INNER JOIN`）。
-		query += fmt.Sprintf("%s ", v.typ)
-		switch d := v.table.(type) {
-		// 子指令。
-		case SubQuery:
-			param, self := b.bindParam(d)
-			b = self
-			query += fmt.Sprintf("%s AS %s ON ", param, d.query.alias)
-		// 資料表格名稱。
-		case string:
-			query += fmt.Sprintf("%s ON ", d)
-		}
-
-		if len(v.conditions) == 0 {
-			query += fmt.Sprintf("(%s) ", v.condition)
-		} else {
-			conditionsQuery, self := b.buildConditions(v.conditions)
-			b = self
-			conditionsQuery = strings.TrimSpace(conditionsQuery)
-			query += fmt.Sprintf("(%s %s %s) ", v.condition, v.conditions[0].connector, conditionsQuery)
-		}
-	}
-	return query, b
-}
-
-//=======================================================
-// 執行函式
-//=======================================================
-
-// runQuery 會以 `Query` 的方式執行建置出來的 SQL 指令。
-func (b Query) runQuery() (query string, params []interface{}) {
-	b = b.buildQuery()
-	query, params = b.query, b.params
-	return
-}
-
-//=======================================================
-// 輸出函式
-//=======================================================
-
-// Table 能夠指定資料表格的名稱。
-func (b Query) Table(tableName ...string) Query {
-	b.tableName = tableName
-	return b
-}
-
-//=======================================================
-// 選擇函式
-//=======================================================
-
-// Select 會取得多列的資料結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
-func (b Query) Select(columns ...string) (query string, params []interface{}) {
-	b.query = b.buildSelect(columns...)
-	query, params = b.runQuery()
-	return
-}
-
-// SelectOne 會取得僅單列的資料作為結果，傳入的參數為欲取得的欄位名稱，不傳入參數表示取得所有欄位。
-// 簡單說，這就是 `.Limit(1).Select()` 的縮寫用法。
-func (b Query) SelectOne(columns ...string) (query string, params []interface{}) {
-	query, params = b.Limit(1).Select(columns...)
-	return
-}
-
-// WithTotalCount 會在 SQL 執行指令中安插 `SQL_CALC_FOUND_ROWS` 選項，
-// 如此一來就能夠在執行完 SQL 指令後取得查詢的總計行數。在不同情況下，這可能會拖低執行效能。
-func (b Query) WithTotalCount() Query {
-	return b.SetQueryOption("SQL_CALC_FOUND_ROWS")
-}
-
-// Exists 會以 `SELECT EXISTS` 的方式回傳該選擇是否有任何資料傳回，其回傳值為 `1`（有）或 `0`（無）。
-func (b Query) Exists() (query string, params []interface{}) {
-	query, params = b.Select()
-	query = fmt.Sprintf("SELECT EXISTS(%s)", query)
-	return
-}
-
-//=======================================================
-// 插入函式
-//=======================================================
-
-// Insert 會插入一筆新的資料。
-func (b Query) Insert(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildInsert("INSERT", data)
-	b = self
-	b.query = query
-	query, params = b.runQuery()
-	return
-}
-
-// InsertMulti 會一次插入多筆資料。
-func (b Query) InsertMulti(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildInsert("INSERT", data)
-	b = self
-	b.query = query
-	query, params = b.runQuery()
-	return
-}
-
-// Delete 會移除相符的資料列，記得用上 `Where` 條件式來避免整個資料表格被清空。
-// 這很重要好嗎，因為⋯你懂的⋯。喔，不。
-func (b Query) Delete() (query string, params []interface{}) {
-	b.query = b.buildDelete(b.tableName...)
-	query, params = b.runQuery()
-	return
-}
-
-//=======================================================
-// 更新函式
-//=======================================================
-
-// Replace 基本上和 `Insert` 無異，這會在有重複資料時移除該筆資料並重新插入。
-// 若無該筆資料則插入新的資料。
-func (b Query) Replace(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildInsert("REPLACE", data)
-	b = self
-	b.query = query
-	query, params = b.runQuery()
-	return
-}
-
-// Update 會以指定的資料來更新相對應的資料列。
-func (b Query) Update(data interface{}) (query string, params []interface{}) {
-	query, self := b.buildUpdate(data, PatchOptions{})
-	b = self
-	b.query = query
-	query, params = b.runQuery()
-	return
-}
-
-// PatchOptions 是片段更新的設置選項。
-type PatchOptions struct {
-	// isPatch 表示這個更新是 Patch。
-	isPatch bool
-	// ExcludedTypes 表示除外的資料型態。如果 `reflect.Bool` 是除外型態，那麼當該欄位為 `false` 時，則會照樣更新。
-	ExcludedTypes []reflect.Kind
-	// ExcludedColumns 是除外欄位名稱。如果 `Age` 是除外欄位，那麼當該欄位為 `0` 時，則照樣會更新。
-	ExcludedColumns []string
-}
-
-// Patch 會以片段更新的方式處理傳入的資料，任何零值會被忽略而不納入更新範圍。
-func (b Query) Patch(data interface{}, opts ...PatchOptions) (query string, params []interface{}) {
-	var opt PatchOptions
-	if len(opts) == 0 {
-		opt = PatchOptions{isPatch: true}
-	} else {
-		opt = opts[0]
-		opt.isPatch = true
-	}
-	query, self := b.buildUpdate(data, opt)
-	b = self
-	b.query = query
-	query, params = b.runQuery()
-	return
-}
-
-// OnDuplicate 能夠指定欲更新的欄位名稱，這會在插入的資料重複時自動更新相對應的欄位。
-func (b Query) OnDuplicate(columns []string, lastInsertID ...string) Query {
-	b.onDuplicateColumns = columns
-	if len(lastInsertID) != 0 {
-		b.lastInsertIDColumn = lastInsertID[0]
-	}
-	return b
-}
-
-//=======================================================
-// 限制函式
-//=======================================================
-
-// Omit 會省略執行時的某些欄位。
-func (b Query) Omit(columns ...string) Query {
-	b.omits = columns
-	return b
-}
-
-// Limit 能夠在 SQL 查詢指令中建立限制筆數的條件。
-func (b Query) Limit(from int, count ...int) Query {
-	if len(count) == 0 {
-		b.limit = []int{from}
-	} else {
-		b.limit = []int{from, count[0]}
-	}
-	return b
-}
-
-// Offset 能夠在 SQL 查詢指令中建立限制筆數的條件。
-func (b Query) Offset(count int, offset int) Query {
-	b.offset = []int{count, offset}
-	return b
-}
-
-// OrderBy 會依照指定的欄位來替結果做出排序（例如：`DESC`、`ASC`）。
-func (b Query) OrderBy(column string, args ...interface{}) Query {
-	b.orders = append(b.orders, order{
-		column: column,
-		args:   args,
+// OrderByField
+func (q *Query) OrderByField(field string, values ...interface{}) *Query {
+	q.orders = append(q.orders, order{
+		field:  field,
+		values: values,
 	})
-	return b
+	return q
 }
 
-// GroupBy 會在執行 SQL 指令時依照特定的欄位來做執行區分。
-func (b Query) GroupBy(columns ...string) Query {
-	b.groupBy = columns
-	return b
+// GroupBy
+func (q *Query) GroupBy(columns ...string) *Query {
+	q.groups = append(q.groups, columns...)
+	return q
 }
 
-//=======================================================
-// 指令函式
-//=======================================================
-
-// RawQuery 會接收傳入的變數來執行傳入的 SQL 執行語句，變數可以在語句中以 `?`（Prepared Statements）使用來避免 SQL 注入攻擊。
-// 這會將多筆資料映射到本地的建構體切片、陣列上。
-func (b Query) RawQuery(q string, values ...interface{}) (query string, params []interface{}) {
-	b.query = q
-	b.params = values
-	query, params = b.runQuery()
-	return
-}
-
-//=======================================================
-// 條件函式
-//=======================================================
-
-// Where 會增加一個 `WHERE AND` 條件式。
-func (b Query) Where(args ...interface{}) Query {
-	b = b.saveCondition("WHERE", "AND", args...)
-	return b
-}
-
-// OrWhere 會增加一個 `WHERE OR` 條件式。
-func (b Query) OrWhere(args ...interface{}) Query {
-	b = b.saveCondition("WHERE", "OR", args...)
-	return b
-}
-
-// Having 會增加一個 `HAVING AND` 條件式。
-func (b Query) Having(args ...interface{}) Query {
-	b = b.saveCondition("HAVING", "AND", args...)
-	return b
-}
-
-// OrHaving 會增加一個 `HAVING OR` 條件式。
-func (b Query) OrHaving(args ...interface{}) Query {
-	b = b.saveCondition("HAVING", "OR", args...)
-	return b
-}
-
-//=======================================================
-// 加入函式
-//=======================================================
-
-// LeftJoin 會向左插入一個資料表格。
-func (b Query) LeftJoin(table interface{}, condition string) Query {
-	b = b.saveJoin(table, "LEFT JOIN", condition)
-	return b
-}
-
-// RightJoin 會向右插入一個資料表格。
-func (b Query) RightJoin(table interface{}, condition string) Query {
-	b = b.saveJoin(table, "RIGHT JOIN", condition)
-	return b
-}
-
-// InnerJoin 會內部插入一個資料表格。
-func (b Query) InnerJoin(table interface{}, condition string) Query {
-	b = b.saveJoin(table, "INNER JOIN", condition)
-	return b
-}
-
-// NaturalJoin 會自然插入一個資料表格。
-func (b Query) NaturalJoin(table interface{}, condition string) Query {
-	b = b.saveJoin(table, "NATURAL JOIN", condition)
-	return b
-}
-
-// JoinWhere 能夠建立一個基於 `WHERE AND` 的條件式給某個指定的插入資料表格。
-func (b Query) JoinWhere(table interface{}, args ...interface{}) Query {
-	b = b.saveJoinCondition("AND", table, args...)
-	return b
-}
-
-// JoinOrWhere 能夠建立一個基於 `WHERE OR` 的條件式給某個指定的插入資料表格。
-func (b Query) JoinOrWhere(table interface{}, args ...interface{}) Query {
-	b = b.saveJoinCondition("OR", table, args...)
-	return b
-}
-
-//=======================================================
-// 輔助函式
-//=======================================================
-
-// SetLockMethod 會設置鎖定資料表格的方式（例如：`WRITE`、`READ`）。
-func (b Query) SetLockMethod(method string) Query {
-	b.lockMethod = strings.ToUpper(method)
-	return b
-}
-
-// Lock 會以指定的上鎖方式來鎖定某個指定的資料表格，這能用以避免資料競爭問題。
-func (b Query) Lock(tableNames ...string) (query string, params []interface{}) {
-	var tables string
-	for _, v := range tableNames {
-		tables += fmt.Sprintf("%s %s, ", v, b.lockMethod)
+func (q *Query) putJoin(typ joinType, t interface{}, conditions ...interface{}) *Query {
+	j := join{
+		typ: typ,
 	}
-	tables = trim(tables)
-
-	query, params = b.RawQuery(fmt.Sprintf("LOCK TABLES %s", tables))
-	return
-}
-
-// Unlock 能解鎖已鎖上的資料表格。
-func (b Query) Unlock(tableNames ...string) (query string, params []interface{}) {
-	var tables string
-	for _, v := range tableNames {
-		tables += fmt.Sprintf("%s, ", v)
+	switch v := t.(type) {
+	case *Query:
+		j.subQuery = v
+	case string:
+		j.table = v
 	}
-	tables = trim(tables)
-	query, params = b.RawQuery(fmt.Sprintf("UNLOCK TABLES %s", tables))
-	return
-}
-
-// SetQueryOption 會設置 SQL 指令的額外選項（例如：`SQL_NO_CACHE`）。
-func (b Query) SetQueryOption(options ...string) Query {
-	b.queryOptions = append(b.queryOptions, options...)
-	return b
-}
-
-//=======================================================
-// 輔助函式
-//=======================================================
-
-// trim 會清理接收到的字串，移除最後無謂的逗點與空白。
-func trim(input string) (result string) {
-	if len(input) == 0 {
-		result = strings.TrimSpace(input)
-	} else {
-		result = strings.TrimSpace(input[0 : len(input)-2])
+	j.conditions = []condition{
+		{
+			args: conditions,
+			// It's fine to be `And` or `Or`
+			// since the build doesn't build the first connector.
+			connector: connectorTypeAnd,
+		},
 	}
-	return
+	q.joins = append(q.joins, j)
+	return q
+}
+
+// CrossJoin
+func (q *Query) CrossJoin(table interface{}, conditions ...interface{}) *Query {
+	return q.putJoin(joinTypeCross, table, conditions...)
+}
+
+// LeftJoin
+func (q *Query) LeftJoin(table interface{}, conditions ...interface{}) *Query {
+	return q.putJoin(joinTypeLeft, table, conditions...)
+}
+
+// RightJoin
+func (q *Query) RightJoin(table interface{}, conditions ...interface{}) *Query {
+	return q.putJoin(joinTypeRight, table, conditions...)
+}
+
+// InnerJoin
+func (q *Query) InnerJoin(table interface{}, conditions ...interface{}) *Query {
+	return q.putJoin(joinTypeInner, table, conditions...)
+}
+
+// NaturalJoin
+func (q *Query) NaturalJoin(table interface{}, conditions ...interface{}) *Query {
+	return q.putJoin(joinTypeNatural, table, conditions...)
+}
+
+// SetQueryOption
+func (q *Query) SetQueryOption(option string) *Query {
+	q.queryOptions = append(q.queryOptions, option)
+	return q
 }

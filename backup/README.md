@@ -19,6 +19,60 @@ This is a query builder without any database connection implmentation, fits for 
 
 [Gorm](https://github.com/jinzhu/gorm) is a famous [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) in [Golang](https://golang.org/) community, it's really good to use until you meet the JOINs with complex quries. Rushia solved the problem by making a better query builder and omits the dependency with structs.
 
+## Indexes
+
+-   [Installation](#安裝方式)
+-   [Naming convention](#命名建議)
+-   [NULL values](#null-值)
+-   [Usages](#使用方式)
+    -   [Mapping](#映射)
+        -   [Omit](#省略)
+    -   [Insert](#插入)
+        -   [Replace](#覆蓋)
+        -   [函式](#函式)
+        -   [當重複時](#當重複時)
+        -   [多筆資料](#多筆資料)
+    -   [筆數限制](#筆數限制)
+    -   [筆數偏移](#筆數偏移)
+    -   [更新](#更新)
+        -   [片段更新](#片段更新)
+    -   [選擇與取得](#選擇與取得)
+        -   [指定欄位](#指定欄位)
+        -   [單行資料](#單行資料)
+    -   [執行生指令](#執行生指令)
+        -   [進階方式](#進階方式)
+    -   [條件宣告](#條件宣告)
+        -   [擁有](#擁有)
+        -   [欄位比較](#欄位比較)
+        -   [自訂運算子](#自訂運算子)
+        -   [介於／不介於](#介於不介於)
+        -   [於清單／不於清單內](#於清單不於清單內)
+        -   [或／還有或](#或還有或)
+        -   [空值](#空值)
+        -   [時間戳](#時間戳)
+            -   [相對](#相對)
+            -   [日期](#日期)
+            -   [時間](#時間)
+        -   [生條件](#生條件)
+            -   [條件變數](#條件變數)
+    -   [刪除](#刪除)
+    -   [排序](#排序)
+        -   [從值排序](#從值排序)
+    -   [群組](#群組)
+    -   [加入](#加入)
+        -   [條件限制](#條件限制)
+    -   [子指令](#子指令)
+        -   [選擇／取得](#選擇取得)
+        -   [插入](#插入-1)
+        -   [加入](#加入-1)
+        -   [存在／不存在](#存在不存在)
+    -   [輔助函式](#輔助函式)
+        -   [總筆數](#總筆數)
+    -   [鎖定表格](#鎖定表格)
+    -   [指令關鍵字](#指令關鍵字)
+        -   [多個選項](#多個選項)
+-   [表格建構函式](#表格建構函式)
+
 ## Installation
 
 Install the package via `go get` command.
@@ -31,36 +85,23 @@ $ go get github.com/teacat/rushia
 
 We suggest you to make all the columns in the database as non-nullable since Golang sucks at supporting NULL fields.
 
-## Usage
+# Usage
 
 Rushia is easy to use, it's kinda like a SQL query but simplized.
 
-### Create query
+# Create query
 
 A basic query starts from `NewQuery(...)` with a table name or a sub query. A complex example with sub query will be mentioned in the later chapters.
 
-```go
+```
 q := rushia.NewQuery("Users")
 ```
 
-### Copy query
+# Copy
 
-By default, Rushia creates a pointer query where you will always modify to the same query. To copy the query with existing rules simply use `Copy`.
+adasdsadasdasdasd
 
-```go
-a := rushia.NewQuery("Users")
-a.WhereValue("Type", "=", "VIP")
-
-b := a.Copy()
-b.WhereValue("Name", "=", "YamiOdymel")
-
-Build(a.Select())
-// Equals: SELECT * FROM Users WHERE Type = ?
-Build(b.Select())
-// Equals: SELECT * FROM Users WHERE Type = ? AND Name = ?
-```
-
-### Build query
+# Build query
 
 Execute the `Build` function when you completed a query with `Select`, `Exists`, `Replace`, `Update`, `Delete`... etc. To get the generated query and the params.
 
@@ -69,7 +110,7 @@ query, params := rushia.Build(rushia.NewQuery("Users").Select())
 // Equals: SELECT * FROM Users
 ```
 
-### Use with the other libraries
+# Use with the other libraries
 
 Since Rushia is just a SQL Builder, you are able to use it with any other database execution libraries. For example with [jmoiron/sqlx](https://github.com/jmoiron/sqlx):
 
@@ -101,7 +142,7 @@ db.Raw(query, params...).Scan(&myUser)
 // Equals: SELECT * FROM Users WHERE Username = ?
 ```
 
-### Struct mapping
+## Mapping
 
 You are able to pass a struct to `Insert` or `Update` functions and it will be automatically applies the field names and the values into the query.
 
@@ -120,7 +161,7 @@ rushia.NewQuery("Users").Insert(u)
 // Equals: INSERT INTO Users (Username, Password) VALUES (?, ?)
 ```
 
-#### Struct tag
+### Struct tag
 
 You could omit or rename a field by specify the `rushia` struct tag.
 
@@ -156,7 +197,7 @@ rushia.NewQuery("Users").Omit("Username").Insert(u)
 // Equals: INSERT INTO Users (Password) VALUES (?)
 ```
 
-### Insert
+## Insert
 
 Rushia provides a shorthand `H` alias for `H`, it the same as [`gin.H`](https://pkg.go.dev/github.com/gin-gonic/gin#H). You can pass a struct or a `H`, `H` into a Insert query.
 
@@ -167,29 +208,11 @@ rushia.NewQuery("Users").Insert(rushia.H{
 })
 // Equals: INSERT INTO Users (Username, Password) VALUES (?, ?)
 
-rushia.NewQuery("Users").Insert(map[string]interface{
+rushia.NewQuery("Users").Insert(rushia.H{
 	"Username": "YamiOdymel",
 	"Password": "test",
 })
 // Equals: INSERT INTO Users (Username, Password) VALUES (?, ?)
-```
-
-### Insert multiple
-
-By passing a `[]H` or `[]map[string]interface{}` to insert multiple values at once.
-
-```go
-data := []H{
-	{
-		"Username": "YamiOdymel",
-		"Password": "test",
-	}, {
-		"Username": "Karisu",
-		"Password": "12345",
-	},
-}
-rushia.NewQuery("Users").Insert(data)
-// Equals: INSERT INTO Users (Username, Password) VALUES (?, ?), (?, ?)
 ```
 
 ### Replace
@@ -241,7 +264,25 @@ rushia.NewQuery("Users").OnDuplicate(rushia.H{
 // Equals: INSERT INTO Users (Username, UpdatedAt) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE UpdatedAt = VALUES(UpdatedAt)
 ```
 
-### Limit
+### Insert multiple
+
+By passing a `[]H` or `[]map[string]interface{}` to insert multiple values at once.
+
+```go
+data := []H{
+	{
+		"Username": "YamiOdymel",
+		"Password": "test",
+	}, {
+		"Username": "Karisu",
+		"Password": "12345",
+	},
+}
+rushia.NewQuery("Users").Insert(data)
+// Equals: INSERT INTO Users (Username, Password) VALUES (?, ?), (?, ?)
+```
+
+## Limit
 
 `Limit` limits the rows to process (Select, Update, Delete). Only the first `10` rows will be affected if it was set to `10`.
 
@@ -253,7 +294,7 @@ rushia.NewQuery("Users").Limit(10, 20).Select(data)
 // Equals: SELECT * from Users LIMIT 10, 20
 ```
 
-### Offset
+## Offset
 
 The usage of `Offset` is a bit like pagination, the arguments work as `count, last_index`. If `Offset(10, 20)` was called, the result `21, 22... 30` will be fetched.
 
@@ -262,7 +303,7 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 // Equals: SELECT * from Users LIMIT 10 OFFSET 20
 ```
 
-### Update
+## Update
 
 To update a data in Rushia is easy as a rocket launch (wat? (todo: update this description later)).
 
@@ -300,25 +341,16 @@ rushia.NewQuery("Users").Where("Username", "YamiOdymel").Exclude("Username", ref
 // Equals: UPDATE Users SET Age = ?, Password = ?, Username = ? WHERE Username = ?
 ```
 
-### Delete
+## Select
 
-Deletes everything! Remember to add a condition to prevent it really deletes everything.
-
-```go
-rushia.NewQuery("Users").Where("ID", 1).Delete()
-// Equals: DELETE FROM Users WHERE ID = ?
-```
-
-### Select
-
-Use `Select` to get the data.
+To simpliy get a data by using `Select`.
 
 ```go
 rushia.NewQuery("Users").Select()
 // Equals: SELECT * FROM Users
 ```
 
-#### Specify columns
+### Specify columns
 
 Specify the columns to select in the `Select` arguments, It colud also be a expression.
 
@@ -330,7 +362,7 @@ rushia.NewQuery("Users").Select(NewExpr("COUNT(*) AS Count"))
 // Equals: SELECT COUNT(*) AS Count FROM Users
 ```
 
-#### Select One
+### Select One
 
 To get a single row data, use `SelectOne`. It's a shorthand for `.Limit(1).Select(...)`.
 
@@ -339,16 +371,7 @@ rushia.NewQuery("Users").SelectOne("Username")
 // Equals: SELECT Username FROM Users LIMIT 1
 ```
 
-#### Distinct
-
-Specifing `Distinct` to eliminate the duplicate rows while fetching the data.
-
-```go
-rushia.NewQuery("Products").Distinct().Select()
-// Equals: SELECT DISTINCT * FROM Products
-```
-
-#### Union
+## Union
 
 `Union` or `UnionAll` allows you to merge the data between different table selections.
 
@@ -362,16 +385,7 @@ rushia.NewQuery("Users").UnionAll(locationQuery).Select()
 // Equals: SELECT * FROM Users UNION ALL SELECT * FROM Locations
 ```
 
-### Select exists
-
-To execute `SELECT EXISTS` by calling `Exists`.
-
-```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
-// 等效於：SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)
-```
-
-### Table alias
+## Table alias
 
 When creating a sub query or table joins, you might need `As` to assign an alias to a table.
 
@@ -380,7 +394,7 @@ rushia.NewQuery("Users").As("U").Select()
 // Equals: SELECT * FROM Users AS U
 ```
 
-### Raw Query
+## Raw Query
 
 Rushia provides you the most 80% things you will use, but if you are in the bad luck to request for the rest 20%, the only hope is to use Raw Query.
 
@@ -392,35 +406,136 @@ A raw query does also support the prepared statement, to replace the value as `?
 q := rushia.NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10)
 ```
 
-### Conditions
+## Where
 
-To define a `WHERE` or `HAVING` condition in Rushia is a piece of cake!
-
-| SQL Query                                          | Rushia Functions                                                               |
-| -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Column = ?`<br>`Column > ?`                       | `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` |
-| `Column = Column`                                  | `.WhereColumn("Column", "=", "Column")`                                        |
-| `Column IN ?`<br>`Column NOT IN ?`                 | `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  |
-| `Column BETWEEN ?, ?`<br>`Column NOT BETWEEN ?, ?` | `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        |
-| `Column IS NULL`<br>`Column IS NOT NULL`           | `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        |
-| `Column Exists Query`<br>`Column NOT EXISTS Query` | `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    |
-| `Column LIKE ?`<br>`Column NOT LIKE ?`             | `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          |
-| `(Column = Column OR Column = ?)`                  | `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        |
-
-The condition functions has it's own transform for `Where`, `OrWhere`, `Having`, `OrHaving`, `JoinWhere`, `OrJoinWhere`.
+To define a `WHERE` condition in Rushia is a piece of cake! The basic `WHERE AND` works like:
 
 ```go
-rushia.NewQuery("Users").WhereValue("ID", "=", 1).WhereValue("Username", "=", "admin").Select()
+rushia.NewQuery("Users").Where("ID", 1).Where("Username", "admin").Select()
 // Equals: SELECT * FROM Users WHERE ID = ? AND Username = ?
+```
 
-rushia.NewQuery("Users").HavingValue("ID", "=", 1).HavingValue("Username", "=", "admin").Select()
-// Equals: SELECT * FROM Users HAVING ID = ? AND Username = ?
+### Having
 
-rushia.NewQuery("Users").WhereColumn("ID", "!=", "CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").Select()
+It's possible to use `HAVING` with `WHERE` conditions.
+
+```go
+rushia.NewQuery("Users").Where("ID", 1).Having("Username", "admin").Select()
+// Equals: SELECT * FROM Users WHERE ID = ? HAVING Username = ?
+```
+
+### Column comparison
+
+To judge between two columns:
+
+```go
+// ✓ DO.
+rushia.NewQuery("Users").Where("LastLogin = CreatedAt").Select()
+// ✖ DON'T!
+rushia.NewQuery("Users").Where("LastLogin", "CreatedAt").Select()
+
+// Equals: SELECT * FROM Users WHERE LastLogin = CreatedAt
+```
+
+### Operators
+
+You are able to change the operators (e.g. >=, <=, <>) in `Where` and `Having`:
+
+```go
+rushia.NewQuery("Users").Where("ID", ">=", 50).Select()
+// Equals: SELECT * FROM Users WHERE ID >= ?
+```
+
+### Between
+
+Use `BETWEEN` make sure a value was in (or not) a specified range.
+
+```go
+rushia.NewQuery("Users").Where("ID", "BETWEEN", 0, 20).Select()
+// Equals: SELECT * FROM Users WHERE ID BETWEEN ? AND ?
+
+rushia.NewQuery("Users").Where("ID", "NOT BETWEEN", 0, 20).Select()
+// Equals: SELECT * FROM Users WHERE ID NOT BETWEEN ? AND ?
+```
+
+### In
+
+Use `IN` to make sure the value was in (or not) the list.
+
+```go
+rushia.NewQuery("Users").Where("ID", "IN", 1, 5, 27, -1, "d").Select()
+// Equals: SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)
+
+rushia.NewQuery("Users").Where("ID", "NOT IN", 1, 5, 27, -1, "d").Select()
+// Equals: SELECT * FROM Users WHERE ID NOT IN (?, ?, ?, ?, ?)
+```
+
+### Or
+
+With `Where` and `Having`, it creates `AND` conditions. If you want to create a `OR`, simply using `OrWhere` or `OrHaving`.
+
+```go
+rushia.NewQuery("Users").Where("FirstNamte", "John").OrWhere("FirstNamte", "Peter").Select()
+// Equals: SELECT * FROM Users WHERE FirstName = ? OR FirstName = ?
+```
+
+You'll need to manually write a query if you are triying to create a condition group such as `A = B OR (A = C OR A = D)`.
+
+```go
+rushia.NewQuery("Users").Where("A = B").OrWhere("(A = C OR A = D)").Select()
+// Equals: SELECT * FROM Users WHERE A = B OR (A = C OR A = D)
+```
+
+### NULL
+
+To verify if a value is a NULL value or not:
+
+```go
+// ✓ DO.
+rushia.NewQuery("Users").Where("LastName", "IS", nil).Select()
+// ✖ DON'T!
+rushia.NewQuery("Users").Where("LastName", "NULL").Select()
+
+// Equals: SELECT * FROM Users WHERE LastName IS NULL
+```
+
+### Raw condition
+
+You are able to pass a raw query into a condition.
+
+```go
+rushia.NewQuery("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // Equals: SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
 ```
 
-### Order
+#### Condition parameters
+
+A raw query condition can also be used with the `?` parameters.
+
+```go
+rushia.NewQuery("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Select()
+// Equals: SELECT * FROM Users WHERE (ID = ? OR ID = ?) AND Login = ?
+```
+
+## Distinct
+
+Specifing `Distinct` to eliminate the duplicate rows while fetching the data.
+
+```go
+rushia.NewQuery("Products").Distinct().Select()
+// Equals: SELECT DISTINCT * FROM Products
+```
+
+## Delete
+
+Deletes everything! Remember to add a condition to prevent it really deletes everything.
+
+```go
+rushia.NewQuery("Users").Where("ID", 1).Delete()
+// Equals: DELETE FROM Users WHERE ID = ?
+```
+
+## Order
 
 Ordering is also supported in Rushia and can be used with functions.
 
@@ -429,7 +544,7 @@ rushia.NewQuery("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("
 // Equals: SELECT * FROM Users ORDER BY ID ASC, Login DESC, RAND()
 ```
 
-#### Order by field
+### Order by field
 
 Or ordering by custom field values:
 
@@ -438,7 +553,7 @@ rushia.NewQuery("Users").OrderByField("UserGroup", "SuperUser", "Admin", "Users"
 // Equals: SELECT * FROM Users ORDER BY FIELD (UserGroup, ?, ?, ?)
 ```
 
-### Group by
+## Group by
 
 The result can also be grouped with `GroupBy`.
 
@@ -447,43 +562,33 @@ rushia.NewQuery("Users").GroupBy("Name").Select()
 // Equals: SELECT * FROM Users GROUP BY Name
 ```
 
-### Table joins
+## Join
 
-Rushia supports multiple ways to join the tables, such as: `InerrJoin`, `LeftJoin`, `RightJoin`, `NaturalJoin`, `CrossJoin`. While joining, the last argument is always a raw condition and colud be useful.
-
-```go
-rushia.
-	NewQuery("Products").
-	LeftJoin("Users", "Products.TenantID = Users.TenantID").
-	Select("Users.Name", "Products.ProductName")
-// Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID)
-```
-
-Or just omit the raw condition and define it later in the function chaining.
-
-```go
-rushia.
-	NewQuery("Products").
-	LeftJoin("Users").
-	JoinWhereColumn("Products.TenantID", "=", "Users.TenantID")
-	Select("Users.Name", "Products.ProductName")
-// Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID)
-```
-
-#### Join condition
-
-With `JoinWhere` or `OrJoinWhere` to expand the conditions for the table joins. The condition will always to be added into the latest joined table.
+Rushia supports multiple ways to join the tables, such as: `InerrJoin`, `LeftJoin`, `RightJoin`, `NaturalJoin`, `CrossJoin`.
 
 ```go
 rushia.
 	NewQuery("Products").
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
-	OrJoinWhereValue("Users.TenantID", "=", 5).
+	Where("Users.ID", 6).
+	Select("Users.Name", "Products.ProductName")
+// Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?
+```
+
+### Join condition
+
+With `JoinWhere` or `OrJoinWhere` to expand the conditions for the table joins.
+
+```go
+rushia.
+	NewQuery("Products").
+	LeftJoin("Users", "Products.TenantID = Users.TenantID").
+	OrJoinWhere("Users", "Users.TenantID", 5).
 	Select("Users.Name", "Products.ProductName")
 // Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID OR Users.TenantID = ?)
 ```
 
-### Sub query
+## Sub query
 
 Rushia supports nested query which is called Sub Query. Use a query as a value to make it sub query.
 
@@ -494,7 +599,7 @@ rushia.NewQuery("Users").Where("ID", "IN", subQuery).Select()
 // Equals: SELECT * FROM Users WHERE ID IN (SELECT UserID FROM VIPUsers)
 ```
 
-#### Sub query insertion
+### insert
 
 To insert a value from a sub query, simply use the query as a value.
 
@@ -509,7 +614,7 @@ rushia.NewQuery("Products").Insert(rushia.H{
 // Equals: INSERT INTO Products (ProductName, UserID, LastUpdated) VALUES (?, (SELECT Name FROM Users WHERE ID = 6), NOW())
 ```
 
-#### Sub query joining
+### join
 
 Join a table from a sub query is possible, but requires to assign an alias to the sub query by using `As`.
 
@@ -523,19 +628,22 @@ rushia.
 // Equals: SELECT Users.Username, Products.ProductName FROM Products AS Products LEFT JOIN (SELECT * FROM Users WHERE Active = ?) AS Users ON Products.UserID = Users.ID
 ```
 
-#### Sub query swapping
+### exists
 
-Passing a sub query to a raw query or an expression will automatically looking for the prepared statement `?` to replace as a built sub query.
+To see if a value does exist or not by using the sub query as a `WHERE` condition statement.
 
 ```go
-subQuery := rushia.NewQuery("Locations").Select()
-rawQuery := rushia.NewRawQuery("SELECT UserID FROM Users WHERE EXISTS (?)", subQuery)
+subQuery := rushia.NewQuery("Users").Where("Company", "測試公司").Select("UserID")
 
-NewQuery("Products").WhereExists(rawQuery).Select()
-// Equals: SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE EXISTS (SELECT * FROM Locations))
+rushia.NewQuery("Products").Where("EXISTS", subQuery).Select()
+// Equals: SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)
 ```
 
-### Set query options
+## 輔助函式
+
+Rushia 有提供一些輔助用的函式協助你除錯、紀錄，或者更加地得心應手。
+
+## Set query options
 
 You can set the query options with Rushia.
 
