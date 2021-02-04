@@ -171,7 +171,7 @@ func (q *Query) buildPatch() string {
 
 func (q *Query) buildExists() string {
 	query, params := Build(NewRawQuery("SELECT EXISTS(?)", q.Copy().Select()))
-	q.bindParams(params, nil)
+	q.params = params
 	return query
 }
 
@@ -196,7 +196,7 @@ func (q *Query) buildInsertSelect() string {
 
 func (q *Query) buildRawQuery() string {
 	query, params := buildExpr(NewExpr(q.rawQuery, q.params...))
-	q.bindParams(params, nil)
+	q.params = params
 	return query
 }
 
