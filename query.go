@@ -238,13 +238,15 @@ func (q *Query) putJoin(typ joinType, t interface{}, conditions ...interface{}) 
 	case string:
 		j.table = v
 	}
-	j.conditions = []condition{
-		{
-			args: conditions,
-			// It's fine to be `And` or `Or`
-			// since the build doesn't build the first connector.
-			connector: connectorTypeAnd,
-		},
+	if len(conditions) != 0 {
+		j.conditions = []condition{
+			{
+				args: conditions,
+				// It's fine to be `And` or `Or`
+				// since the build doesn't build the first connector.
+				connector: connectorTypeAnd,
+			},
+		}
 	}
 	q.joins = append(q.joins, j)
 	return q
