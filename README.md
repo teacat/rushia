@@ -204,20 +204,6 @@ rushia.NewQuery("Users").Replace(rushia.H{
 // Equals: REPLACE INTO Users (Username, Password) VALUES (?, ?)
 ```
 
-### Expression
-
-By using `NewExpr` to create an Expression, you can represent a complex value that accepts a raw query, and the parameters to create functions such as: `SHA1()` or `NOW()` and intervals.
-
-```go
-rushia.NewQuery("Users").Insert(rushia.H{
-	"Username":  "YamiOdymel",
-	"Password":  rushia.NewExpr("SHA1(?)", "secretpassword+salt"),
-	"Expires":   rushia.NewExpr("NOW() + INTERVAL 1 YEAR"),
-	"CreatedAt": rushia.NewExpr("NOW()"),
-})
-// Equals: INSERT INTO Users (Username, Password, Expires, CreatedAt) VALUES (?, SHA1(?), NOW() + INTERVAL 1 YEAR, NOW())
-```
-
 ### On duplicate
 
 Rushia supports `ON DUPLICATE KEY UPDATE` to update the specified data when it's duplicated on insertion. It's like `Replace` but it won't delete the duplicated data but update it instead.
@@ -239,6 +225,20 @@ rushia.NewQuery("Users").OnDuplicate(rushia.H{
 })
 // CAUTION! `VALUES` has been deprecated since MySQL 8.0.20! Use the above example instead!
 // Equals: INSERT INTO Users (Username, UpdatedAt) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE UpdatedAt = VALUES(UpdatedAt)
+```
+
+### Expression
+
+By using `NewExpr` to create an Expression, you can represent a complex value that accepts a raw query, and the parameters to create functions such as: `SHA1()` or `NOW()` and intervals.
+
+```go
+rushia.NewQuery("Users").Insert(rushia.H{
+	"Username":  "YamiOdymel",
+	"Password":  rushia.NewExpr("SHA1(?)", "secretpassword+salt"),
+	"Expires":   rushia.NewExpr("NOW() + INTERVAL 1 YEAR"),
+	"CreatedAt": rushia.NewExpr("NOW()"),
+})
+// Equals: INSERT INTO Users (Username, Password, Expires, CreatedAt) VALUES (?, SHA1(?), NOW() + INTERVAL 1 YEAR, NOW())
 ```
 
 ### Limit

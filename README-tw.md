@@ -202,20 +202,6 @@ rushia.NewQuery("Users").Replace(rushia.H{
 // 等效於：REPLACE INTO Users (Username, Password) VALUES (?, ?)
 ```
 
-### 表達式
-
-插入較為複雜的值時，可以使用 `NewExpr` 建立一個新的表達式，便能傳入生指令與相關參數執行像是 `SHA1()` 或者取得目前時間的 `NOW()`，甚至將目前時間加上一年 ⋯ 等。
-
-```go
-rushia.NewQuery("Users").Insert(rushia.H{
-	"Username":  "YamiOdymel",
-	"Password":  rushia.NewExpr("SHA1(?)", "secretpassword+salt"),
-	"Expires":   rushia.NewExpr("NOW() + INTERVAL 1 YEAR"),
-	"CreatedAt": rushia.NewExpr("NOW()"),
-})
-// 等效於：INSERT INTO Users (Username, Password, Expires, CreatedAt) VALUES (?, SHA1(?), NOW() + INTERVAL 1 YEAR, NOW())
-```
-
 ### 當重複時
 
 Rushia 支援了插入資料若重複時可以更新該筆資料的指定欄位，這類似「覆蓋」，但這並不會先刪除原先的資料，這種方式僅會在插入時檢查是否重複，若重複則更新該筆資料。
@@ -237,6 +223,20 @@ rushia.NewQuery("Users").OnDuplicate(rushia.H{
 })
 // 注意！`VALUES` 這個用法已經在 MySQL 8.0.20 被棄用！請使用上面的方法！
 // 等效於：INSERT INTO Users (Username, UpdatedAt) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE UpdatedAt = VALUES(UpdatedAt)
+```
+
+### 表達式
+
+插入較為複雜的值時，可以使用 `NewExpr` 建立一個新的表達式，便能傳入生指令與相關參數執行像是 `SHA1()` 或者取得目前時間的 `NOW()`，甚至將目前時間加上一年 ⋯ 等。
+
+```go
+rushia.NewQuery("Users").Insert(rushia.H{
+	"Username":  "YamiOdymel",
+	"Password":  rushia.NewExpr("SHA1(?)", "secretpassword+salt"),
+	"Expires":   rushia.NewExpr("NOW() + INTERVAL 1 YEAR"),
+	"CreatedAt": rushia.NewExpr("NOW()"),
+})
+// 等效於：INSERT INTO Users (Username, Password, Expires, CreatedAt) VALUES (?, SHA1(?), NOW() + INTERVAL 1 YEAR, NOW())
 ```
 
 ### 筆數限制
