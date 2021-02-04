@@ -125,12 +125,12 @@ rushia.NewQuery("Users").Insert(u)
 ```go
 type User struct {
 	Username string `rushia:"-"`
-    RealName string `rushia:"real_name"`
-    Password string
+	RealName string `rushia:"real_name"`
+	Password string
 }
 u := User{
-    Username: "YamiOdymel",
-    RealName: "洨洨安",
+	Username: "YamiOdymel",
+	RealName: "洨洨安",
 	Password: "test",
 }
 rushia.NewQuery("Users").Insert(u)
