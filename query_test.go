@@ -44,6 +44,23 @@ func assertEqual(a *assert.Assertions, expected string, actual string) {
 	return
 }
 
+func assertParams(a *assert.Assertions, expected []interface{}, actual []interface{}) {
+	if len(expected) != len(actual) {
+		a.Fail("Not same params length", "expected: \"%d\" %+v\nreceived: \"%d\" %+v", len(expected), expected, len(actual), actual)
+	}
+	for _, v := range expected {
+		var yes bool
+		for _, j := range actual {
+			if v == j {
+				yes = true
+			}
+		}
+		if !yes {
+			a.Fail(`Not in params`)
+		}
+	}
+}
+
 func BenchmarkInsertStruct(b *testing.B) {
 	u := struct {
 		Username string
@@ -79,36 +96,29 @@ func TestInsertStruct(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(u))
+	query, params := Build(NewQuery("Users").Insert(u))
 	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 func TestInsert(t *testing.T) {
-	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(H{
-		"Username": "YamiOdymel",
-		"Password": "test",
-	}))
-	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
-}
-
-func TestInsertMap(t *testing.T) {
-	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(map[string]interface{}{
-		"Username": "YamiOdymel",
-		"Password": "test",
-	}))
-	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
-}
-
-func TestInsertParams(t *testing.T) {
 	assert := assert.New(t)
 	query, params := Build(NewQuery("Users").Insert(H{
 		"Username": "YamiOdymel",
 		"Password": "test",
 	}))
 	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
-	assert.Len(params, 2)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
+}
+
+func TestInsertMap(t *testing.T) {
+	assert := assert.New(t)
+	query, params := Build(NewQuery("Users").Insert(map[string]interface{}{
+		"Username": "YamiOdymel",
+		"Password": "test",
+	}))
+	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 func TestInsertMulti(t *testing.T) {
@@ -122,8 +132,9 @@ func TestInsertMulti(t *testing.T) {
 			"Password": "12345",
 		},
 	}
-	query, _ := Build(NewQuery("Users").Insert(data))
+	query, params := Build(NewQuery("Users").Insert(data))
 	assertEqual(assert, "INSERT INTO Users (Password, Username) VALUES (?, ?), (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test", "Karisu", "12345"}, params)
 }
 
 func TestInsertMultiMaps(t *testing.T) {
@@ -137,8 +148,9 @@ func TestInsertMultiMaps(t *testing.T) {
 			"Password": "12345",
 		},
 	}
-	query, _ := Build(NewQuery("Users").Insert(data))
+	query, params := Build(NewQuery("Users").Insert(data))
 	assertEqual(assert, "INSERT INTO Users (Password, Username) VALUES (?, ?), (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test", "Karisu", "12345"}, params)
 }
 
 func TestInsertStructOmit(t *testing.T) {
@@ -150,8 +162,9 @@ func TestInsertStructOmit(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Omit("Username").Insert(u))
+	query, params := Build(NewQuery("Users").Omit("Username").Insert(u))
 	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+	assertParams(assert, []interface{}{"test"}, params)
 }
 
 func TestInsertStructTagOmit(t *testing.T) {
@@ -163,8 +176,9 @@ func TestInsertStructTagOmit(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(u))
+	query, params := Build(NewQuery("Users").Insert(u))
 	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+	assertParams(assert, []interface{}{"test"}, params)
 }
 
 func TestInsertStructTagRename(t *testing.T) {
@@ -176,17 +190,19 @@ func TestInsertStructTagRename(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(u))
+	query, params := Build(NewQuery("Users").Insert(u))
 	assertEqual(assert, "INSERT INTO Users (user_name, Password) VALUES (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 func TestInsertOmit(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Omit("Username").Insert(H{
+	query, params := Build(NewQuery("Users").Omit("Username").Insert(H{
 		"Username": "YamiOdymel",
 		"Password": "test",
 	}))
 	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+	assertParams(assert, []interface{}{"test"}, params)
 }
 
 func TestInsertMultiOmit(t *testing.T) {
@@ -200,48 +216,53 @@ func TestInsertMultiOmit(t *testing.T) {
 			"Password": "12345",
 		},
 	}
-	query, _ := Build(NewQuery("Users").Omit("Username").Insert(data))
+	query, params := Build(NewQuery("Users").Omit("Username").Insert(data))
 	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?), (?)", query)
+	assertParams(assert, []interface{}{"test", "12345"}, params)
 }
 
 func TestInsertExpr(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Insert(H{
+	query, params := Build(NewQuery("Users").Insert(H{
 		"Username":  "YamiOdymel",
 		"Password":  NewExpr("SHA1(?)", "secretpassword+salt"),
 		"Expires":   NewExpr("NOW() + INTERVAL 1 YEAR"),
 		"CreatedAt": NewExpr("NOW()"),
 	}))
 	assertEqual(assert, "INSERT INTO Users (CreatedAt, Expires, Password, Username) VALUES (NOW(), NOW() + INTERVAL 1 YEAR, SHA1(?), ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "secretpassword+salt"}, params)
 }
 
 func TestInsertSubQueryExpr(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Salaries").Where("Username", "YamiOdymel").Select("Salary")
-	query, _ := Build(NewQuery("Users").Insert(H{
+	query, params := Build(NewQuery("Users").Insert(H{
 		"Username":  "YamiOdymel",
 		"AvgSalary": NewExpr("SUM((?))", subQuery),
 	}))
 	assertEqual(assert, "INSERT INTO Users (Username, AvgSalary) VALUES (?, SUM((SELECT Salary FROM Salaries WHERE Username = ?)))", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "YamiOdymel"}, params)
 
 	subQuery = NewQuery("Salaries").Where("Username", "YamiOdymel").Select("Salary")
-	query, _ = Build(NewQuery("Users").Insert(H{
+	query, params = Build(NewQuery("Users").Insert(H{
 		"Username": "YamiOdymel",
 		"Salary":   subQuery,
 	}))
 	assertEqual(assert, "INSERT INTO Users (Username, Salary) VALUES (?, (SELECT Salary FROM Salaries WHERE Username = ?))", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "YamiOdymel"}, params)
 }
 
 func TestInsertSelect(t *testing.T) {
 	assert := assert.New(t)
 	from := NewQuery("AdditionalUsers").WhereLike("Name", "ABC%").Select("ID", "Username", "Nickname")
-	query, _ := Build(NewQuery("Users").InsertSelect(from, "ID", "Username", "Nickname"))
+	query, params := Build(NewQuery("Users").InsertSelect(from, "ID", "Username", "Nickname"))
 	assertEqual(assert, "INSERT INTO Users (ID, Username, Nickname) SELECT ID, Username, Nickname FROM AdditionalUsers WHERE Username LIKE ?", query)
+	assertParams(assert, []interface{}{"ABC%"}, params)
 }
 
 func TestOnDuplicateInsert(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").OnDuplicate(H{
+	query, params := Build(NewQuery("Users").OnDuplicate(H{
 		"UpdatedAt": NewExpr("VALUES(UpdatedAt)"), // Deprecated in MySQL 8.0.20
 		"ID":        NewExpr("LAST_INSERT_ID(ID)"),
 	}).Insert(H{
@@ -250,8 +271,9 @@ func TestOnDuplicateInsert(t *testing.T) {
 		"UpdatedAt": NewExpr("NOW()"),
 	}))
 	assertEqual(assert, "INSERT INTO Users (Password, UpdatedAt, Username) VALUES (?, NOW(), ?) ON DUPLICATE KEY UPDATE ID = LAST_INSERT_ID(ID), UpdatedAt = VALUES(UpdatedAt)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 
-	query, _ = Build(NewQuery("Users").As("New").OnDuplicate(H{
+	query, params = Build(NewQuery("Users").As("New").OnDuplicate(H{
 		"UpdatedAt": NewExpr("New.UpdatedAt"),
 		"ID":        NewExpr("LAST_INSERT_ID(ID)"),
 	}).Insert(H{
@@ -260,6 +282,7 @@ func TestOnDuplicateInsert(t *testing.T) {
 		"UpdatedAt": NewExpr("NOW()"),
 	}))
 	assertEqual(assert, "INSERT INTO Users (Password, UpdatedAt, Username) VALUES (?, NOW(), ?) AS New ON DUPLICATE KEY UPDATE ID = LAST_INSERT_ID(ID), UpdatedAt = New.UpdatedAt", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 //=======================================================
@@ -279,11 +302,12 @@ func TestBuildNoType(t *testing.T) {
 
 func TestReplace(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Replace(H{
+	query, params := Build(NewQuery("Users").Replace(H{
 		"Username": "YamiOdymel",
 		"Password": "test",
 	}))
 	assertEqual(assert, "REPLACE INTO Users (Password, Username) VALUES (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 //=======================================================
@@ -292,11 +316,12 @@ func TestReplace(t *testing.T) {
 
 func TestUpdateOmit(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Omit("Username").Update(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Omit("Username").Update(H{
 		"Username": "Karisu",
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "123456"}, params)
 }
 
 func TestUpdateOmitStruct(t *testing.T) {
@@ -308,26 +333,29 @@ func TestUpdateOmitStruct(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Omit("Username").Update(u))
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Omit("Username").Update(u))
 	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"test", "YamiOdymel"}, params)
 }
 
 func TestUpdate(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(H{
 		"Username": "",
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "", "123456"}, params)
 }
 
 func TestUpdateCase(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(H{
 		"Username": "",
 		"Password": NewExpr(`CASE Username WHEN "YamiOdymel" THEN 123 WHEN "Foobar" THEN 456 ELSE 789 END`),
 	}))
 	assertEqual(assert, `UPDATE Users SET Password = CASE Username WHEN "YamiOdymel" THEN 123 WHEN "Foobar" THEN 456 ELSE 789 END, Username = ? WHERE Username = ?`, query)
+	assertParams(assert, []interface{}{"YamiOdymel", ""}, params)
 }
 
 func TestUpdateStruct(t *testing.T) {
@@ -339,17 +367,19 @@ func TestUpdateStruct(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(u))
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Update(u))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "YamiOdymel", "test"}, params)
 }
 
 func TestLimitUpdate(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Limit(10).Update(H{
+	query, params := Build(NewQuery("Users").Limit(10).Update(H{
 		"Username": "Karisu",
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ? LIMIT 10", query)
+	assertParams(assert, []interface{}{"Karisu", "123456"}, params)
 }
 
 //=======================================================
@@ -358,35 +388,38 @@ func TestLimitUpdate(t *testing.T) {
 
 func TestPatch(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Patch(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Patch(H{
 		"Username": "",
 		"Age":      0,
 		"Height":   183,
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Height = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "123456", 183}, params)
 }
 
 func TestPatchExcludeTypes(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exclude(reflect.String).Patch(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exclude(reflect.String).Patch(H{
 		"Username": "",
 		"Age":      0,
 		"Height":   183,
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ?, Height = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "", 183, "YamiOdymel"}, params)
 }
 
 func TestPatchExcludeColumns(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exclude("Username", "Age").Patch(H{
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exclude("Username", "Age").Patch(H{
 		"Username": "",
 		"Age":      0,
 		"Height":   0,
 		"Password": "123456",
 	}))
 	assertEqual(assert, "UPDATE Users SET Password = ?, Username = ?, Age = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "123456", 0, ""}, params)
 }
 
 func TestPatchStruct(t *testing.T) {
@@ -398,8 +431,9 @@ func TestPatchStruct(t *testing.T) {
 		Password: "test",
 	}
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Patch(u))
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Patch(u))
 	assertEqual(assert, "UPDATE Users SET Password = ? WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
 //=======================================================
@@ -408,8 +442,9 @@ func TestPatchStruct(t *testing.T) {
 
 func TestExists(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exists())
+	query, params := Build(NewQuery("Users").Where("Username", "YamiOdymel").Exists())
 	assertEqual(assert, "SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel"}, params)
 }
 
 //=======================================================
@@ -457,8 +492,9 @@ func TestGetColumns(t *testing.T) {
 
 func TestSelectOne(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", 1).Select())
+	query, params := Build(NewQuery("Users").Where("ID", 1).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ?", query)
+	assertParams(assert, []interface{}{1}, params)
 
 	query, _ = Build(NewQuery("Users").Limit(1).Select())
 	assertEqual(assert, "SELECT * FROM Users LIMIT 1", query)
@@ -467,7 +503,7 @@ func TestSelectOne(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users LIMIT 1", query)
 
 	query, _ = Build(NewQuery("Users").SelectOne("Username", "Nickname"))
-	assertEqual(assert, "SELECT Username, Nickname FROM Users", query)
+	assertEqual(assert, "SELECT Username, Nickname FROM Users LIMIT 1", query)
 }
 
 //=======================================================
@@ -476,8 +512,9 @@ func TestSelectOne(t *testing.T) {
 
 func TestRawQuery(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10))
+	query, params := Build(NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10))
 	assertEqual(assert, "SELECT * FROM Users WHERE ID >= ?", query)
+	assertParams(assert, []interface{}{10}, params)
 }
 
 //=======================================================
@@ -486,39 +523,54 @@ func TestRawQuery(t *testing.T) {
 
 func TestWhere(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", 1).Where("Username", "admin").Select())
+	query, params := Build(NewQuery("Users").Where("ID", 1).Where("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ? AND Username = ?", query)
+	assertParams(assert, []interface{}{1, "admin"}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", 1).OrWhere("Username", "admin").Select())
+	query, params = Build(NewQuery("Users").Where("ID", 1).OrWhere("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ? OR Username = ?", query)
+	assertParams(assert, []interface{}{1, "admin"}, params)
 }
 
 func TestWhereQuery(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("(ID = ?)", 1).Where("Username", "admin").Select())
+	query, params := Build(NewQuery("Users").Where("(ID = ?)", 1).Where("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ?) AND Username = ?", query)
-	query, _ = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?))", 1, "password").Where("Username", "admin").Select())
+	assertParams(assert, []interface{}{1, "admin"}, params)
+
+	query, params = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?))", 1, "password").Where("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR Password = SHA(?)) AND Username = ?", query)
-	query, _ = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?))", 1, "password").OrWhere("Username", "admin").Select())
+	assertParams(assert, []interface{}{1, "password", "admin"}, params)
+
+	query, params = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?))", 1, "password").OrWhere("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR Password = SHA(?)) OR Username = ?", query)
-	query, _ = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?) OR Username = ?)", 1, "password", "Hello").Select())
+	assertParams(assert, []interface{}{1, "password", "admin"}, params)
+
+	query, params = Build(NewQuery("Users").Where("(ID = ? OR Password = SHA(?) OR Username = ?)", 1, "password", "Hello").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR Password = SHA(?) OR Username = ?)", query)
+	assertParams(assert, []interface{}{1, "password", "Hello"}, params)
 }
 
 func TestWhereExpr(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where(NewExpr("(ID = ?)", 1)).Where("Username", "admin").Select())
+	query, params := Build(NewQuery("Users").Where(NewExpr("(ID = ?)", 1)).Where("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ?) AND Username = ?", query)
-	query, _ = Build(NewQuery("Users").Where(NewExpr("(ID = ? OR Password = SHA(?))", 1, "password")).Where("Username", "admin").Select())
+	assertParams(assert, []interface{}{1, "admin"}, params)
+
+	query, params = Build(NewQuery("Users").Where(NewExpr("(ID = ? OR Password = SHA(?))", 1, "password")).Where("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR Password = SHA(?)) AND Username = ?", query)
+	assertParams(assert, []interface{}{1, "password", "admin"}, params)
 }
 
 func TestWhereHaving(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", 1).Having("Username", "admin").Select())
+	query, params := Build(NewQuery("Users").Where("ID", 1).Having("Username", "admin").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ? HAVING Username = ?", query)
-	query, _ = Build(NewQuery("Users").Where("ID", 1).Having("Username", "admin").OrHaving("Password", "test").Select())
+	assertParams(assert, []interface{}{1, "admin"}, params)
+
+	query, params = Build(NewQuery("Users").Where("ID", 1).Having("Username", "admin").OrHaving("Password", "test").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID = ? HAVING Username = ? OR Password = ?", query)
+	assertParams(assert, []interface{}{1, "admin", "test"}, params)
 }
 
 func TestWhereColumns(t *testing.T) {
@@ -532,59 +584,73 @@ func TestWhereColumns(t *testing.T) {
 
 func TestWhereOperator(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", ">=", 50).Select())
+	query, params := Build(NewQuery("Users").Where("ID", ">=", 50).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID >= ?", query)
+	assertParams(assert, []interface{}{50}, params)
 }
 
 func TestWhereLike(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").WhereLike("ID", 50).Select())
+	query, params := Build(NewQuery("Users").WhereLike("ID", 50).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID LIKE ?", query)
+	assertParams(assert, []interface{}{50}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", "LIKE", 50).Select())
+	query, params = Build(NewQuery("Users").Where("ID", "LIKE", 50).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID LIKE ?", query)
+	assertParams(assert, []interface{}{50}, params)
 
-	query, _ = Build(NewQuery("Users").WhereNotLike("ID", 50).Select())
+	query, params = Build(NewQuery("Users").WhereNotLike("ID", 50).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT LIKE ?", query)
+	assertParams(assert, []interface{}{50}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", "NOT LIKE", 50).Select())
+	query, params = Build(NewQuery("Users").Where("ID", "NOT LIKE", 50).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT LIKE ?", query)
+	assertParams(assert, []interface{}{50}, params)
 }
 
 func TestWhereBetween(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").WhereBetween("ID", 0, 20).Select())
+	query, params := Build(NewQuery("Users").WhereBetween("ID", 0, 20).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID BETWEEN ? AND ?", query)
+	assertParams(assert, []interface{}{0, 20}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", "BETWEEN", 0, 20).Select())
+	query, params = Build(NewQuery("Users").Where("ID", "BETWEEN", 0, 20).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID BETWEEN ? AND ?", query)
+	assertParams(assert, []interface{}{0, 20}, params)
 
-	query, _ = Build(NewQuery("Users").WhereNotBetween("ID", 0, 20).Select())
+	query, params = Build(NewQuery("Users").WhereNotBetween("ID", 0, 20).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT BETWEEN ? AND ?", query)
+	assertParams(assert, []interface{}{0, 20}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", "NOT BETWEEN", 0, 20).Select())
+	query, params = Build(NewQuery("Users").Where("ID", "NOT BETWEEN", 0, 20).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT BETWEEN ? AND ?", query)
+	assertParams(assert, []interface{}{0, 20}, params)
 }
 
 func TestWhereIn(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", "IN", 1, 5, 27, -1, "d").Select())
+	query, params := Build(NewQuery("Users").Where("ID", "IN", 1, 5, 27, -1, "d").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{1, 5, 27, -1, "d"}, params)
 
-	query, _ = Build(NewQuery("Users").WhereIn("ID", 1, 5, 27, -1, "d").Select())
+	query, params = Build(NewQuery("Users").WhereIn("ID", 1, 5, 27, -1, "d").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{1, 5, 27, -1, "d"}, params)
 
-	query, _ = Build(NewQuery("Users").Where("ID", "NOT IN", 1, 5, 27, -1, "d").Select())
+	query, params = Build(NewQuery("Users").Where("ID", "NOT IN", 1, 5, 27, -1, "d").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT IN (?, ?, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{1, 5, 27, -1, "d"}, params)
 
-	query, _ = Build(NewQuery("Users").WhereNotIn("ID", 1, 5, 27, -1, "d").Select())
+	query, params = Build(NewQuery("Users").WhereNotIn("ID", 1, 5, 27, -1, "d").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT IN (?, ?, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{1, 5, 27, -1, "d"}, params)
 }
 
 func TestOrWhere(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("FirstName", "John").OrWhere("FirstName", "Peter").Select())
+	query, params := Build(NewQuery("Users").Where("FirstName", "John").OrWhere("FirstName", "Peter").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE FirstName = ? OR FirstName = ?", query)
+	assertParams(assert, []interface{}{"John", "Peter"}, params)
 
 	query, _ = Build(NewQuery("Users").Where("A = B").OrWhere("(A = C OR A = D)").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE A = B OR (A = C OR A = D)", query)
@@ -626,15 +692,9 @@ func TestRawWhere(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := Build(NewQuery("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)", query)
-	query, _ = Build(NewQuery("Users").WhereRaw("ID != CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").WhereRaw("Username = ?", "YamiOdymel").Select())
+	query, params := Build(NewQuery("Users").WhereRaw("ID != CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").WhereRaw("Username = ?", "YamiOdymel").Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin) AND Username = ?", query)
-}
-
-func TestRawWhereParams(t *testing.T) {
-	assert := assert.New(t)
-	query, p := Build(NewQuery("Users").Where("(ID = ? OR ID = ?)", 6, 2).Where("Login", "Mike").Select())
-	assertEqual(assert, "SELECT * FROM Users WHERE (ID = ? OR ID = ?) AND Login = ?", query)
-	assert.Len(p, 3)
+	assertParams(assert, []interface{}{"YamiOdymel"}, params)
 }
 
 //=======================================================
@@ -658,8 +718,9 @@ func TestUnion(t *testing.T) {
 	query, _ := Build(NewQuery("Users").Union(tableQuery).Select())
 	assertEqual(assert, "SELECT * FROM Users UNION SELECT * FROM Locations", query)
 
-	query, _ = Build(NewQuery(NewQuery("Users").Union(tableQuery).Select()).Where("Username", "YamiOdymel").Select())
+	query, params := Build(NewQuery(NewQuery("Users").Union(tableQuery).Select()).Where("Username", "YamiOdymel").Select())
 	assertEqual(assert, "SELECT * FROM (SELECT * FROM Users UNION SELECT * FROM Locations) WHERE Username = ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel"}, params)
 }
 
 func TestUnionAll(t *testing.T) {
@@ -669,10 +730,11 @@ func TestUnionAll(t *testing.T) {
 	query, _ := Build(NewQuery("Users").UnionAll(tableQuery).Select())
 	assertEqual(assert, "SELECT * FROM Users UNION ALL SELECT * FROM Locations", query)
 
-	query, _ = Build(NewQuery(
+	query, params := Build(NewQuery(
 		NewQuery("Users").UnionAll(tableQuery).Select(),
 	).As("Result").Where("Username", "YamiOdymel").Select())
 	assertEqual(assert, "SELECT * FROM (SELECT * FROM Users UNION ALL SELECT * FROM Locations) AS Result WHERE Username = ?", query)
+	assertParams(assert, []interface{}{"YamiOdymel"}, params)
 }
 
 //=======================================================
@@ -681,8 +743,9 @@ func TestUnionAll(t *testing.T) {
 
 func TestDelete(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").Where("ID", 1).Delete())
+	query, params := Build(NewQuery("Users").Where("ID", 1).Delete())
 	assertEqual(assert, "DELETE FROM Users WHERE ID = ?", query)
+	assertParams(assert, []interface{}{1}, params)
 }
 
 //=======================================================
@@ -697,8 +760,9 @@ func TestOrderBy(t *testing.T) {
 
 func TestOrderByField(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Users").OrderByField("UserGroup", "SuperUser", "Admin", "Users").Select())
+	query, params := Build(NewQuery("Users").OrderByField("UserGroup", "SuperUser", "Admin", "Users").Select())
 	assertEqual(assert, "SELECT * FROM Users ORDER BY FIELD (UserGroup, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{"SuperUser", "Admin", "Users"}, params)
 }
 
 //=======================================================
@@ -719,68 +783,75 @@ func TestGroupBy(t *testing.T) {
 
 func TestJoin(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Products").
+	query, params := Build(NewQuery("Products").
 		CrossJoin("Users", "Products.TenantID = Users.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products CROSS JOIN Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		LeftJoin("Users", "Products.TenantID = Users.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		RightJoin("Users", "Products.TenantID = Users.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products RIGHT JOIN Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		InnerJoin("Users", "Products.TenantID = Users.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products INNER JOIN Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		NaturalJoin("Users", "Products.TenantID = Users.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products NATURAL JOIN Users ON (Products.TenantID = Users.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		LeftJoin("Users", "Products.TenantID = Users.TenantID").
 		RightJoin("Posts", "Products.TenantID = Posts.TenantID").
 		Where("Users.ID", 6).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID) RIGHT JOIN Posts ON (Products.TenantID = Posts.TenantID) WHERE Users.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
 }
 
 func TestJoinWhere(t *testing.T) {
 	assert := assert.New(t)
-	query, _ := Build(NewQuery("Products").
+	query, params := Build(NewQuery("Products").
 		LeftJoin("Users", "Products.TenantID = Users.TenantID").
 		OrJoinWhere("Users.TenantID", 5).
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID OR Users.TenantID = ?)", query)
+	assertParams(assert, []interface{}{5}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		LeftJoin("Users", "Products.TenantID = Users.TenantID").
 		JoinWhere("Users.Username", "Wow").
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID AND Users.Username = ?)", query)
+	assertParams(assert, []interface{}{"Wow"}, params)
 
-	query, _ = Build(NewQuery("Products").
+	query, params = Build(NewQuery("Products").
 		LeftJoin("Users", "Products.TenantID = Users.TenantID").
 		RightJoin("Posts", "Products.TenantID = Posts.TenantID").
 		JoinWhere("Posts.Username", "Wow").
 		JoinWhere("Users.Username", "Wow").
 		Select("Users.Name", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Name, Products.ProductName FROM Products LEFT JOIN Users ON (Products.TenantID = Users.TenantID AND Users.Username = ?) RIGHT JOIN Posts ON (Products.TenantID = Posts.TenantID AND Posts.Username = ?)", query)
+	assertParams(assert, []interface{}{"Wow", "Wow"}, params)
 }
-
-TEST PARAMS TRUE LA
 
 //=======================================================
 // Sub Query
@@ -789,64 +860,72 @@ TEST PARAMS TRUE LA
 func TestSubQuerySelect(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Products").Where("Quantity", ">", 2).Select("UserID")
-	query, _ := Build(NewQuery("Users").WhereIn("ID", subQuery).Select())
+	query, params := Build(NewQuery("Users").WhereIn("ID", subQuery).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (SELECT UserID FROM Products WHERE Quantity > ?)", query)
+	assertParams(assert, []interface{}{2}, params)
 }
 
 func TestSubQueryInsert(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Users").Where("ID", 6).Select("Name")
-	query, _ := Build(NewQuery("Products").Insert(H{
+	query, params := Build(NewQuery("Products").Insert(H{
 		"ProductName": "測試商品",
 		"UserID":      subQuery,
 		"LastUpdated": NewExpr("NOW()"),
 	}))
 	assertEqual(assert, "INSERT INTO Products (LastUpdated, ProductName, UserID) VALUES (NOW(), ?, (SELECT Name FROM Users WHERE ID = ?))", query)
+	assertParams(assert, []interface{}{"測試商品", 6}, params)
 }
 
 func TestSubQueryJoin(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Users").As("Users").Where("Active", 1).Select()
-	query, _ := Build(NewQuery("Products").
+	query, params := Build(NewQuery("Products").
 		LeftJoin(subQuery, "Products.UserID = Users.ID").
 		Select("Users.Username", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Username, Products.ProductName FROM Products LEFT JOIN (SELECT * FROM Users WHERE Active = ?) AS Users ON (Products.UserID = Users.ID)", query)
+	assertParams(assert, []interface{}{1}, params)
 }
 
 func TestSubQueryJoinWhere(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Users").As("Users").Where("Active", 1).Select()
-	query, _ := Build(NewQuery("Products").
+	query, params := Build(NewQuery("Products").
 		LeftJoin(subQuery, "Products.UserID = Users.ID").
 		JoinWhere("Users", "Users.Username", "Hello").
 		Select("Users.Username", "Products.ProductName"))
 	assertEqual(assert, "SELECT Users.Username, Products.ProductName FROM Products LEFT JOIN (SELECT * FROM Users WHERE Active = ?) AS Users ON (Products.UserID = Users.ID AND Users.Username = ?)", query)
+	assertParams(assert, []interface{}{1, "Hello"}, params)
 }
 
 func TestSubQueryExists(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Users").Where("Company", "測試公司").Select("UserID")
-	query, _ := Build(NewQuery("Products").WhereExists(subQuery).Select())
+	query, params := Build(NewQuery("Products").WhereExists(subQuery).Select())
 	assertEqual(assert, "SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)", query)
+	assertParams(assert, []interface{}{"測試公司"}, params)
 
 	subQuery = NewQuery("Products").Where("Quantity", ">", 2).Select("UserID")
-	query, _ = Build(NewQuery("Users").Where("ID", "IN", subQuery).Exists())
+	query, params = Build(NewQuery("Users").Where("ID", "IN", subQuery).Exists())
 	assertEqual(assert, "SELECT EXISTS(SELECT * FROM Users WHERE ID IN (SELECT UserID FROM Products WHERE Quantity > ?))", query)
+	assertParams(assert, []interface{}{2}, params)
 }
 
 func TestSubQueryRawQuery(t *testing.T) {
 	assert := assert.New(t)
 	rawQuery := NewRawQuery("SELECT UserID FROM Users WHERE Company = ?", "測試公司")
-	query, _ := Build(NewQuery("Products").WhereExists(rawQuery).Select())
+	query, params := Build(NewQuery("Products").WhereExists(rawQuery).Select())
 	assertEqual(assert, "SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE Company = ?)", query)
+	assertParams(assert, []interface{}{"測試公司"}, params)
 }
 
 func TestSubQueryRawQueryReplacement(t *testing.T) {
 	assert := assert.New(t)
 	subQuery := NewQuery("Locations").Where("Username", "YamiOdymel").Select()
 	rawQuery := NewRawQuery("SELECT UserID FROM Users WHERE EXISTS (?)", subQuery)
-	query, _ := Build(NewQuery("Products").WhereExists(rawQuery).Select())
+	query, params := Build(NewQuery("Products").WhereExists(rawQuery).Select())
 	assertEqual(assert, "SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE EXISTS (SELECT * FROM Locations WHERE Username = ?))", query)
+	assertParams(assert, []interface{}{"YamiOdymel"}, params)
 }
 
 //=======================================================
@@ -858,9 +937,10 @@ func TestComplexQueries(t *testing.T) {
 	ids := NewQuery("JobHistories").WhereBetween("DepartmentID", 50, 100).Select("JobID")
 	avgs := NewQuery("Jobs").WhereIn("JobID", ids).GroupBy("JobID").Select("JobID", "AVG(MinSalary) AS MyAVG")
 	maxAvg := NewQuery(avgs).As("SS").Select("MAX(MyAVG)")
-	query, _ := Build(NewQuery("Employees").GroupBy("JobID").Having("Avg(Salary)", "<", maxAvg).Select("JobID", "AVG(Salary)"))
+	query, params := Build(NewQuery("Employees").GroupBy("JobID").Having("Avg(Salary)", "<", maxAvg).Select("JobID", "AVG(Salary)"))
 
 	assertEqual(assert, "SELECT JobID, AVG(Salary) FROM Employees HAVING AVG(Salary) < (SELECT MAX(MyAVG) FROM (SELECT JobID, AVG(MinSalary) AS MyAVG FROM Jobs WHERE JobID IN (SELECT JobID FROM JobHistories WHERE DepartmentID BETWEEN ? AND ?) GROUP BY JobID) AS SS) GROUP BY JobID", query)
+	assertParams(assert, []interface{}{50, 100}, params)
 
 	// Example Source: https://www.w3resource.com/sql/subqueries/nested-subqueries.php
 	// SELECT job_id,
@@ -900,4 +980,92 @@ func TestSetQueryOption(t *testing.T) {
 	assert := assert.New(t)
 	query, _ := Build(NewQuery("Users").SetQueryOption("FOR UPDATE").Select("Username"))
 	assertEqual(assert, "SELECT Username FROM Users FOR UPDATE", query)
+}
+
+func TestChaining(t *testing.T) {
+	assert := assert.New(t)
+
+	subQuery := NewQuery("SubTable").Select()
+	q := NewQuery("Users").
+		LeftJoin("Products").
+		JoinValue("Column", "=", "Value").
+		JoinColumn("Column", "=", "Value").
+		JoinRaw("Column", "=", "Value").
+		JoinNotLike("Column", "Value").
+		JoinLike("Column", "Value").
+		JoinBetween("Column", 1, 20).
+		JoinNotBetween("Column", 1, 20).
+		JoinIn("Column", "Value", "Value").
+		JoinNotIn("Column", "=", "Value").
+		JoinIsNotNull("Column").
+		JoinExists(subQuery).
+		JoinNotExists(subQuery).
+		//
+		OrJoinValue("Column", "=", "Value").
+		OrJoinColumn("Column", "=", "Value").
+		OrJoinRaw("Column", "=", "Value").
+		OrJoinNotLike("Column", "Value").
+		OrJoinLike("Column", "Value").
+		OrJoinBetween("Column", 1, 20).
+		OrJoinNotBetween("Column", 1, 20).
+		OrJoinIn("Column", "Value", "Value").
+		OrJoinNotIn("Column", "=", "Value").
+		OrJoinIsNotNull("Column").
+		OrJoinExists(subQuery).
+		OrJoinNotExists(subQuery).
+		//
+		WhereValue("Column", "=", "Value").
+		WhereColumn("Column", "=", "Value").
+		WhereRaw("Column", "=", "Value").
+		WhereNotLike("Column", "Value").
+		WhereLike("Column", "Value").
+		WhereBetween("Column", 1, 20).
+		WhereNotBetween("Column", 1, 20).
+		WhereIn("Column", "Value", "Value").
+		WhereNotIn("Column", "=", "Value").
+		WhereIsNotNull("Column").
+		WhereExists(subQuery).
+		WhereNotExists(subQuery).
+		//
+		OrWhereValue("Column", "=", "Value").
+		OrWhereColumn("Column", "=", "Value").
+		OrWhereRaw("Column", "=", "Value").
+		OrWhereNotLike("Column", "Value").
+		OrWhereLike("Column", "Value").
+		OrWhereBetween("Column", 1, 20).
+		OrWhereNotBetween("Column", 1, 20).
+		OrWhereIn("Column", "Value", "Value").
+		OrWhereNotIn("Column", "=", "Value").
+		OrWhereIsNotNull("Column").
+		OrWhereExists(subQuery).
+		OrWhereNotExists(subQuery).
+		//
+		HavingValue("Column", "=", "Value").
+		HavingColumn("Column", "=", "Value").
+		HavingRaw("Column", "=", "Value").
+		HavingNotLike("Column", "Value").
+		HavingLike("Column", "Value").
+		HavingBetween("Column", 1, 20).
+		HavingNotBetween("Column", 1, 20).
+		HavingIn("Column", "Value", "Value").
+		HavingNotIn("Column", "=", "Value").
+		HavingIsNotNull("Column").
+		HavingExists(subQuery).
+		HavingNotExists(subQuery).
+		//
+		OrHavingValue("Column", "=", "Value").
+		OrHavingColumn("Column", "=", "Value").
+		OrHavingRaw("Column", "=", "Value").
+		OrHavingNotLike("Column", "Value").
+		OrHavingLike("Column", "Value").
+		OrHavingBetween("Column", 1, 20).
+		OrHavingNotBetween("Column", 1, 20).
+		OrHavingIn("Column", "Value", "Value").
+		OrHavingNotIn("Column", "=", "Value").
+		OrHavingIsNotNull("Column").
+		OrHavingExists(subQuery).
+		OrHavingNotExists(subQuery).Select()
+
+	query, _ := Build(q)
+	assertEqual(assert, "SELECT * FROM Users LEFT JOIN Products ON (Column = ? AND Column = Value AND Column AND Column NOT LIKE ? AND Column LIKE ? AND Column BETWEEN ? AND ? AND Column NOT BETWEEN ? AND ? AND Column IN (?, ?) AND Column NOT IN (?, ?) AND Column IS NOT NULL AND EXISTS (SELECT * FROM SubTable) AND NOT EXISTS (SELECT * FROM SubTable) OR Column = ? OR Column = Value OR Column OR Column NOT LIKE ? OR Column LIKE ? OR Column BETWEEN ? AND ? OR Column NOT BETWEEN ? AND ? OR Column IN (?, ?) OR Column NOT IN (?, ?) OR Column IS NOT NULL OR EXISTS (SELECT * FROM SubTable) OR NOT EXISTS (SELECT * FROM SubTable)) WHERE Column = ? AND Column = Value AND Column AND Column NOT LIKE ? AND Column LIKE ? AND Column BETWEEN ? AND ? AND Column NOT BETWEEN ? AND ? AND Column IN (?, ?) AND Column NOT IN (?, ?) AND Column IS NOT NULL AND EXISTS (SELECT * FROM SubTable) AND NOT EXISTS (SELECT * FROM SubTable) OR Column = ? OR Column = Value OR Column OR Column NOT LIKE ? OR Column LIKE ? OR Column BETWEEN ? AND ? OR Column NOT BETWEEN ? AND ? OR Column IN (?, ?) OR Column NOT IN (?, ?) OR Column IS NOT NULL OR EXISTS (SELECT * FROM SubTable) OR NOT EXISTS (SELECT * FROM SubTable) HAVING Column = ? AND Column = Value AND Column AND Column NOT LIKE ? AND Column LIKE ? AND Column BETWEEN ? AND ? AND Column NOT BETWEEN ? AND ? AND Column IN (?, ?) AND Column NOT IN (?, ?) AND Column IS NOT NULL AND EXISTS (SELECT * FROM SubTable) AND NOT EXISTS (SELECT * FROM SubTable) OR Column = ? OR Column = Value OR Column OR Column NOT LIKE ? OR Column LIKE ? OR Column BETWEEN ? AND ? OR Column NOT BETWEEN ? AND ? OR Column IN (?, ?) OR Column NOT IN (?, ?) OR Column IS NOT NULL OR EXISTS (SELECT * FROM SubTable) OR NOT EXISTS (SELECT * FROM SubTable)", query)
 }
