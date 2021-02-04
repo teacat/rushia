@@ -368,7 +368,7 @@ To execute `SELECT EXISTS` by calling `Exists`.
 
 ```go
 rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
-// 等效於：SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)
+// Equals: SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)
 ```
 
 ### Table alias
