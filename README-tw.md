@@ -75,7 +75,7 @@ query, params := rushia.Build(rushia.NewQuery("Users").Select())
 
 ```go
 // 初始化 SQLX 的連線。
-db := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
+db, err := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
 
 // 透過 Rushia 建置語法。
 q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()

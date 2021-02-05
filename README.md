@@ -75,7 +75,7 @@ Since Rushia is just a SQL Builder, you are able to use it with any other databa
 
 ```go
 // Initialize a SQLX connection.
-db := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
+db, err := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
 
 // Build the query via Rushia.
 q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
