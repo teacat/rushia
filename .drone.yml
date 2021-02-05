@@ -1,0 +1,32 @@
+kind: pipeline
+name: default
+
+platform:
+    arch: amd64
+    os: linux
+
+steps:
+    - name: 1.13
+      image: golang:1.13
+      commands:
+          - go get ./...
+          - go test ./...
+          - go test -v -covermode=count -coverprofile=coverage.out
+    - name: 1.14
+      image: golang:1.14
+      commands:
+          - go get ./...
+          - go test ./...
+          - go test -v -covermode=count -coverprofile=coverage.out
+    - name: 1.15
+      image: golang:1.15
+      commands:
+          - go get ./...
+          - go test ./...
+          - go test -v -covermode=count -coverprofile=coverage.out
+    - name: latest
+      image: golang
+      commands:
+          - go get ./...
+          - go test ./...
+          - go test -v -covermode=count -coverprofile=coverage.out
