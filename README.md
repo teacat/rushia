@@ -396,7 +396,7 @@ q := rushia.NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10)
 
 To define a `WHERE` or `HAVING` condition in Rushia is a piece of cake!
 
-| SQL Query                                          | Rushia Functions                                                               |
+| SQL Query                                          | Alias Functions                                                                |
 | -------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `Column = ?`<br>`Column > ?`                       | `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` |
 | `Column = Column`                                  | `.WhereColumn("Column", "=", "Column")`                                        |
@@ -406,6 +406,19 @@ To define a `WHERE` or `HAVING` condition in Rushia is a piece of cake!
 | `Column Exists Query`<br>`Column NOT EXISTS Query` | `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    |
 | `Column LIKE ?`<br>`Column NOT LIKE ?`             | `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          |
 | `(Column = Column OR Column = ?)`                  | `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        |
+
+And the alias functions are actually using a `Where` method.
+
+| Alias Function                                                                 | Equals                                                                                 |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` | `.Where("Column", "Value")`<br>`.Where("Column", ">", "Value")`                        |
+| `.WhereColumn("Column", "=", "Column")`                                        | `.Where("Column = Column")`                                                            |
+| `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  | `.Where("Column", "IN", "A", "B", "C")`<br>`.Where("Column", "NOT IN", "A", "B", "C")` |
+| `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        | `.Where("Column", "BETWEEN", 1, 20)`<br>`.Where("Column", "NOT BETWEEN", 1, 20)`       |
+| `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        | `.Where("Column", "IS", nil)`<br>`.Where("Column", "IS NOT", nul)`                     |
+| `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    | `.Where("EXISTS", subQuery)`<br>`.Where("NOT EXISTS", subQuery)`                       |
+| `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          | `.Where("Column", "LIKE", "Value")`<br>`.Where("Column", "NOT LIKE", "Value")`         |
+| `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        | `.Where("(Column = Column OR Column = ?)", "Value")`                                   |
 
 The condition functions has it's own transform for `Where`, `OrWhere`, `Having`, `OrHaving`, `JoinWhere`, `OrJoinWhere`.
 
