@@ -24,7 +24,7 @@
 打開終端機並且透過 `go get` 安裝此套件即可。
 
 ```bash
-$ go get github.com/teacat/rushia
+$ go get github.com/teacat/rushia/v2
 ```
 
 ## NULL 值
@@ -560,26 +560,6 @@ rushia.NewQuery("Users").SetQueryOption("SQL_NO_CACHE").Select()
 rushia.NewQuery("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 // Gives: INSERT LOW_PRIORITY IGNORE INTO Users ...
 ```
-
-# 表格建構函式
-
-Rushia 除了基本的資料庫函式可供使用外，還能夠建立一個表格並且規劃其索引、外鍵、型態。
-
-```go
-migration := rushia.NewMigration()
-
-migration.NewQuery("Users").Column("Username").Varchar(32).Primary().Create()
-// 等效於：CREATE TABLE Users (Username VARCHAR(32) NOT NULL PRIMARY KEY) ENGINE=INNODB
-```
-
-| 數值      | 字串       | 二進制    | 檔案資料   | 時間      | 浮點數  | 固組 |
-| --------- | ---------- | --------- | ---------- | --------- | ------- | ---- |
-| TinyInt   | Char       | Binary    | Blob       | Date      | Double  | Enum |
-| SmallInt  | Varchar    | VarBinary | MediumBlob | DateTime  | Decimal | Set  |
-| MediumInt | TinyText   | Bit       | LongBlob   | Time      | Float   |      |
-| Int       | Text       |           |            | Timestamp |         |      |
-| BigInt    | MediumText |           |            | Year      |         |      |
-|           | LongText   |           |            |           |         |      |
 
 # 相關連結
 
