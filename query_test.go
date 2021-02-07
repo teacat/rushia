@@ -61,6 +61,17 @@ func assertParams(a *assert.Assertions, expected []interface{}, actual []interfa
 	}
 }
 
+func assertParamOrders(a *assert.Assertions, expected []interface{}, actual []interface{}) {
+	if len(expected) != len(actual) {
+		a.Fail("Not same params length", "expected: \"%d\" %+v\nreceived: \"%d\" %+v", len(expected), expected, len(actual), actual)
+	}
+	for k, v := range expected {
+		if actual[k] != v {
+			a.Fail(`Not same params order`)
+		}
+	}
+}
+
 func BenchmarkInsertStruct(b *testing.B) {
 	u := struct {
 		Username string
@@ -934,46 +945,78 @@ func TestSubQueryRawQueryReplacement(t *testing.T) {
 
 func TestComplexQueries(t *testing.T) {
 	assert := assert.New(t)
-	ids := NewQuery("JobHistories").WhereBetween("DepartmentID", 50, 100).Select("JobID")
-	avgs := NewQuery("Jobs").WhereIn("JobID", ids).GroupBy("JobID").Select("JobID", "AVG(MinSalary) AS MyAVG")
-	maxAvg := NewQuery(avgs).As("SS").Select("MAX(MyAVG)")
-	query, params := Build(NewQuery("Employees").GroupBy("JobID").Having("Avg(Salary)", "<", maxAvg).Select("JobID", "AVG(Salary)"))
+	jobHistories := NewQuery("JobHistories").
+		WhereBetween("DepartmentID", 50, 100).
+		Select("JobID")
+	jobs := NewQuery("Jobs").
+		WhereIn("JobID", jobHistories).
+		GroupBy("JobID").
+		Select("JobID", "AVG(MinSalary) AS MyAVG")
+	maxAverage := NewQuery(jobs).
+		As("SS").
+		Select("MAX(MyAVG)")
+	employees := NewQuery("Employees").
+		GroupBy("JobID").
+		Having("Avg(Salary)", "<", maxAverage).
+		Select("JobID", "AVG(Salary)")
+	query, params := Build(employees)
 
 	assertEqual(assert, "SELECT JobID, AVG(Salary) FROM Employees HAVING AVG(Salary) < (SELECT MAX(MyAVG) FROM (SELECT JobID, AVG(MinSalary) AS MyAVG FROM Jobs WHERE JobID IN (SELECT JobID FROM JobHistories WHERE DepartmentID BETWEEN ? AND ?) GROUP BY JobID) AS SS) GROUP BY JobID", query)
 	assertParams(assert, []interface{}{50, 100}, params)
+	assertParamOrders(assert, []interface{}{50, 100}, params)
 
 	// Example Source: https://www.w3resource.com/sql/subqueries/nested-subqueries.php
-	// SELECT job_id,
-	//        Avg(salary)
-	// FROM   employees
-	// HAVING Avg(salary) < (SELECT Max(myavg)
-	//                       FROM   (SELECT job_id,
-	//                                      Avg(min_salary) AS myavg
-	//                               FROM   jobs
-	//                               WHERE  job_id IN (SELECT job_id
-	//                                                 FROM   job_history
-	//                                                 WHERE  department_id BETWEEN 50
-	//                                                        AND 100
-	//                                                )
-	//                               GROUP  BY job_id) ss)
+	// SELECT JobID,
+	//        AVG(Salary)
+	// FROM   Employees
+	// HAVING AVG(Salary) < (SELECT MAX(MyAVG)
+	//                       FROM   (SELECT JobID,
+	//                                      AVG(MinSalary) AS MyAVG
+	//                               FROM   Jobs
+	//                               WHERE  JobID IN (SELECT JobID
+	//                                                FROM   JobHistories
+	//                                                WHERE  DepartmentID BETWEEN 50
+	//                                                       AND 100
+	//                                               )
+	//                               GROUP  BY JobID) AS SS)
 	// GROUP  BY job_id;
 
+	agents := NewQuery("Agents").
+		WhereValue("Commission", "<", 0.12).
+		Select()
+	customers := NewQuery("Customers").
+		WhereValue("Grade", "=", 3).
+		WhereValue("CustomerCountry", "<>", "India").
+		WhereValue("OpeningAmount", "<", 7000).
+		WhereExists(agents).
+		Select("OutstandingAmount")
+	orders := NewQuery("Orders").
+		WhereValue("OrderAmount", ">", 2000).
+		WhereValue("OrderDate", "<", "01-SEP-08").
+		WhereValue("AdvanceAmount", "<", NewExpr("ANY (?)", customers)).
+		Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
+	query, params = Build(orders)
+
+	assertEqual(assert, "SELECT OrderNum, OrderDate, OrderAmount, AdvanceAmount FROM Orders WHERE OrderAmount > ? AND OrderDate < ? AND AdvanceAmount < ANY (SELECT OutstandingAmount FROM Customers WHERE Grade = ? AND CustomerCountry <> ? AND OpeningAmount < ? AND EXISTS (SELECT * FROM Agents WHERE Commission < ?))", query)
+	assertParams(assert, []interface{}{2000, "01-SEP-08", 3, "India", 7000, 0.12}, params)
+	assertParamOrders(assert, []interface{}{2000, "01-SEP-08", 3, "India", 7000, 0.12}, params)
+
 	// Example Source: https://www.w3resource.com/sql/subqueries/nested-subqueries.php
-	// SELECT ord_num,
-	//        ord_date,
-	//        ord_amount,
-	//        advance_amount
-	// FROM   orders
-	// WHERE  ord_amount > 2000
-	//        AND ord_date < '01-SEP-08'
-	//        AND advance_amount < ANY (SELECT outstanding_amt
-	//                                  FROM   customer
-	//                                  WHERE  grade = 3
-	//                                         AND cust_country <> 'India'
-	//                                         AND opening_amt < 7000
-	//                                         AND EXISTS (SELECT *
-	//                                                     FROM   agents
-	//                                                     WHERE  commission < .12));
+	// SELECT OrderNum,
+	//        OrderDate,
+	//        OrderAmount,
+	//        AdvanceAmount
+	// FROM   Orders
+	// WHERE  OrderAmount > 2000
+	//        AND OrderDate < '01-SEP-08'
+	//        AND AdvanceAmount < ANY (SELECT OutstandingAmount
+	//                                 FROM   Customers
+	//                                 WHERE  Grade = 3
+	//                                        AND CustomerCountry <> 'India'
+	//                                        AND OpeningAmount < 7000
+	//                                        AND EXISTS (SELECT *
+	//                                                    FROM   Agents
+	//                                                    WHERE  Commission < 0.12));
 }
 
 func TestSetQueryOption(t *testing.T) {
