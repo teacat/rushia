@@ -6,21 +6,7 @@ import (
 	"strings"
 )
 
-func buildExpr(expr *Expr) (query string, params []interface{}) {
-	for i, j := range expr.params {
-		switch v := j.(type) {
-		case *Query:
-			q, p := Build(v)
-			expr.rawQuery = replaceNth(expr.rawQuery, "?", q, i+1)
-			params = append(params, p...)
-		default:
-			params = append(params, j)
-		}
-	}
-	query = expr.rawQuery
-	return
-}
-
+// isOmitted searchs for the field in the query omit option.
 func (q *Query) isOmitted(field string) bool {
 	for _, v := range q.omits {
 		if v == field {
@@ -30,11 +16,16 @@ func (q *Query) isOmitted(field string) bool {
 	return false
 }
 
+// bindOptions is the option for different binding situations.
 type bindOptions struct {
-	noParentheses   bool
+	// noParentheses decides to wrap the sub query in the parentheses or not.
+	noParentheses bool
+	// keepStringValue returns the original string value instead of treating it like a prepared statement.
+	// usually used for column names, so it won't be convert to `?` symbol.
 	keepStringValue bool
 }
 
+// bindParams loops the bindParam function for each value in the slice, and the values will be bind into the Query.
 func (q *Query) bindParams(data []interface{}, options *bindOptions) string {
 	var qu string
 	for _, v := range data {
@@ -43,6 +34,8 @@ func (q *Query) bindParams(data []interface{}, options *bindOptions) string {
 	return q.trim(qu)
 }
 
+// bindParam binds the value to the Query and returns how it should look in SQL based on it's type.
+// If the value was a sub query, `bindParam` builds it and push the params from the sub query to the current query, and returns the sub query SQL.
 func (q *Query) bindParam(data interface{}, options *bindOptions) string {
 	switch v := data.(type) {
 	case *Query:
@@ -70,10 +63,12 @@ func (q *Query) bindParam(data interface{}, options *bindOptions) string {
 	}
 }
 
+// separateStrings separates the strings with commas.
 func (q *Query) separateStrings(v []string) string {
 	return strings.Join(v, ", ")
 }
 
+// separateParams binds the values while separating them.
 func (q *Query) separateParams(j []interface{}) string {
 	var qu string
 	for _, v := range j {
@@ -82,6 +77,7 @@ func (q *Query) separateParams(j []interface{}) string {
 	return q.trim(qu)
 }
 
+// separatePairs binds the values and making the key value as a pair.
 func (q *Query) separatePairs(h H) string {
 	var qu string
 	for k, v := range h {
@@ -90,6 +86,7 @@ func (q *Query) separatePairs(h H) string {
 	return q.trim(qu)
 }
 
+// separateGroups binds the value group and wraps each group in parentheses.
 func (q *Query) separateGroups(j [][]interface{}) string {
 	var qu string
 	for _, v := range j {
@@ -98,11 +95,56 @@ func (q *Query) separateGroups(j [][]interface{}) string {
 	return q.trim(qu)
 }
 
+// padSpace adds the space in the end of the string if it was not empty.
 func (q *Query) padSpace(s string) string {
 	if s != "" {
 		return fmt.Sprintf("%s ", s)
 	}
 	return s
+}
+
+//=======================================================
+// Build
+//=======================================================
+
+func (q *Query) buildQuery() string {
+	switch q.typ {
+	case queryTypeInsert:
+		return q.buildInsert(insertTypeInsert)
+	case queryTypeReplace:
+		return q.buildReplace()
+	case queryTypeUpdate:
+		return q.buildUpdate(false)
+	case queryTypeSelect:
+		return q.buildSelect()
+	case queryTypePatch:
+		return q.buildPatch()
+	case queryTypeExists:
+		return q.buildExists()
+	case queryTypeInsertSelect:
+		return q.buildInsertSelect()
+	case queryTypeRawQuery:
+		return q.buildRawQuery()
+	case queryTypeDelete:
+		return q.buildDelete()
+	default:
+		panic(ErrQueryTypeUnspecified)
+	}
+}
+
+func buildExpr(expr *Expr) (query string, params []interface{}) {
+	for i, j := range expr.params {
+		switch v := j.(type) {
+		case *Query:
+			q, p := Build(v)
+			expr.rawQuery = replaceNth(expr.rawQuery, "?", q, i+1)
+			params = append(params, p...)
+		default:
+			params = append(params, j)
+		}
+	}
+	query = expr.rawQuery
+	return
 }
 
 func (q *Query) buildInsert(typ insertType) string {
@@ -198,31 +240,6 @@ func (q *Query) buildRawQuery() string {
 	query, params := buildExpr(NewExpr(q.rawQuery, q.params...))
 	q.params = params
 	return query
-}
-
-func (q *Query) buildQuery() string {
-	switch q.typ {
-	case queryTypeInsert:
-		return q.buildInsert(insertTypeInsert)
-	case queryTypeReplace:
-		return q.buildReplace()
-	case queryTypeUpdate:
-		return q.buildUpdate(false)
-	case queryTypeSelect:
-		return q.buildSelect()
-	case queryTypePatch:
-		return q.buildPatch()
-	case queryTypeExists:
-		return q.buildExists()
-	case queryTypeInsertSelect:
-		return q.buildInsertSelect()
-	case queryTypeRawQuery:
-		return q.buildRawQuery()
-	case queryTypeDelete:
-		return q.buildDelete()
-	default:
-		panic(ErrQueryTypeUnspecified)
-	}
 }
 
 func (q *Query) buildUnion() string {
@@ -466,7 +483,8 @@ func (q *Query) buildAfterQueryOptions() string {
 // Helpers
 //=======================================================
 
-// flattenData
+// flattenData parses the `interface{}` to a flatten columns, values group pair.
+// It also returns a H slice which converted from interface{}.
 func (q *Query) flattenData(data interface{}) (columns []string, values [][]interface{}, h []H) {
 	switch v := data.(type) {
 	case H:
@@ -487,7 +505,8 @@ func (q *Query) flattenData(data interface{}) (columns []string, values [][]inte
 	return
 }
 
-// patchH
+// patchH eliminates the zero values of a H data,
+// and it also refers to the Query exclude option.
 func (q *Query) patchH(data H) H {
 	for k, v := range data {
 		if q.shouldEliminate(k, v) {
@@ -497,7 +516,7 @@ func (q *Query) patchH(data H) H {
 	return data
 }
 
-// omitH
+// omitH omits the fields of a H data based on the Query omit option.
 func (q *Query) omitH(data H) H {
 	for k := range data {
 		if q.isOmitted(k) {
@@ -507,7 +526,7 @@ func (q *Query) omitH(data H) H {
 	return data
 }
 
-// flattenHs
+// flattenHs flatten a slice of H by passing it back to the `flattenData` and collects the result.
 func (q *Query) flattenHs(data []H) (columns []string, values [][]interface{}, hs []H) {
 	for k, j := range data {
 		cols, vals, h := q.flattenData(j)
@@ -520,7 +539,7 @@ func (q *Query) flattenHs(data []H) (columns []string, values [][]interface{}, h
 	return
 }
 
-// flattenH
+// flattenH flatten a H to column names, values.
 func (q *Query) flattenH(data H) (columns []string, values []interface{}) {
 	for k, v := range data {
 		columns = append(columns, k)
@@ -529,7 +548,7 @@ func (q *Query) flattenH(data H) (columns []string, values []interface{}) {
 	return
 }
 
-// structToH
+// structToH converts a struct to H data and rename/omit it by the rushia struct tag.
 func (q *Query) structToH(data interface{}) H {
 	h := make(H)
 
@@ -548,7 +567,7 @@ func (q *Query) structToH(data interface{}) H {
 	return h
 }
 
-// mapsToHs
+// mapsToHs converts map slice to H slice.
 func (q *Query) mapsToHs(data []map[string]interface{}) []H {
 	var hs []H
 	for _, j := range data {
@@ -557,7 +576,9 @@ func (q *Query) mapsToHs(data []map[string]interface{}) []H {
 	return hs
 }
 
-// shouldEliminate
+// shouldEliminate is designed for Patch.
+// Returns true if the value was a zero value to indicates the value should be skipped,
+// returns false if the value was not a zero value, either the type/field name was in the exclude list.
 func (q *Query) shouldEliminate(k string, v interface{}) bool {
 	var isExcludedColumn bool
 	for _, j := range q.exclude.fields {
@@ -578,12 +599,13 @@ func (q *Query) shouldEliminate(k string, v interface{}) bool {
 	return (!isExcludedColumn && !isExcludedKind) && valueOf.IsZero()
 }
 
-// trim
+// trim trims the unnecessary commas in the end of the string.
 func (q *Query) trim(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), ",")
 }
 
-// replaceNth
+// replaceNth removes the nth repeated occurrence of the specified string,
+// usually used for sub query prepared statment `?` symbol replacement.
 func replaceNth(s, old, new string, n int) string {
 	i := 0
 	for m := 1; m <= n; m++ {
@@ -598,4 +620,29 @@ func replaceNth(s, old, new string, n int) string {
 		i += len(old)
 	}
 	return s
+}
+
+// putJoin
+func (q *Query) putJoin(typ joinType, t interface{}, conditions ...interface{}) *Query {
+	j := join{
+		typ: typ,
+	}
+	switch v := t.(type) {
+	case *Query:
+		j.subQuery = v
+	case string:
+		j.table = v
+	}
+	if len(conditions) != 0 {
+		j.conditions = []condition{
+			{
+				args: conditions,
+				// It's fine to be `And` or `Or`
+				// since the build doesn't build the first connector.
+				connector: connectorTypeAnd,
+			},
+		}
+	}
+	q.joins = append(q.joins, j)
+	return q
 }
