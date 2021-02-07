@@ -357,6 +357,7 @@ func (q *Query) buildConditions(c []condition) string {
 		// .Where("(Column = ? OR Column = ?)", "A", "B")
 		// ※ String
 		// .Where("Column", ">", "Value")
+		// .Where("Column", ">", NewExpr("ANY (Query)"))
 		// .Where("Column", "IN", subQuery)
 		// .Where("Column", "IS", nil)
 		// .Having("Avg(Column)", "<", subQuery)
