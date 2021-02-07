@@ -27,88 +27,6 @@
 $ go get github.com/teacat/rushia/v2
 ```
 
-## 範例
-
-廢話不多說，讓我們先來點有趣的。
-
-```go
-rushia.NewQuery("Users").Select()
-// 等效於：SELECT * FROM Users
-
-rushia.NewQuery("Users").Insert(rushia.H{
-	"Username": "YamiOdymel",
-	"Password": "test",
-})
-// 等效於：INSERT INTO Users (Username, Password) VALUES (?, ?)
-```
-
-然後再來點刺激的。
-
-```go
-jobHistories := rushia.NewQuery("JobHistories").
-	WhereBetween("DepartmentID", 50, 100).
-	Select("JobID")
-jobs := rushia.NewQuery("Jobs").
-	WhereIn("JobID", jobHistories).
-	GroupBy("JobID").
-	Select("JobID", "AVG(MinSalary) AS MyAVG")
-maxAverage := rushia.NewQuery(jobs).
-	As("SS").
-	Select("MAX(MyAVG)")
-employees := rushia.NewQuery("Employees").
-	GroupBy("JobID").
-	Having("Avg(Salary)", "<", maxAverage).
-	Select("JobID", "AVG(Salary)")
-
-// 等效於：
-// SELECT JobID,
-//        AVG(Salary)
-// FROM   Employees
-// HAVING AVG(Salary) < (SELECT MAX(MyAVG)
-//                       FROM   (SELECT JobID,
-//                                      AVG(MinSalary) AS MyAVG
-//                               FROM   Jobs
-//                               WHERE  JobID IN (SELECT JobID
-//                                                FROM   JobHistories
-//                                                WHERE  DepartmentID BETWEEN 50
-//                                                       AND 100
-//                                               )
-//                               GROUP  BY JobID) AS SS)
-// GROUP  BY job_id;
-
-agents := rushia.NewQuery("Agents").
-	WhereValue("Commission", "<", 0.12).
-	Select()
-customers := rushia.NewQuery("Customers").
-	WhereValue("Grade", "=", 3).
-	WhereValue("CustomerCountry", "<>", "India").
-	WhereValue("OpeningAmount", "<", 7000).
-	WhereExists(agents).
-	Select("OutstandingAmount")
-orders := rushia.NewQuery("Orders").
-	WhereValue("OrderAmount", ">", 2000).
-	WhereValue("OrderDate", "<", "01-SEP-08").
-	WhereValue("AdvanceAmount", "<", NewExpr("ANY (?)", customers)).
-	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
-
-// 等效於：
-// SELECT OrderNum,
-//        OrderDate,
-//        OrderAmount,
-//        AdvanceAmount
-// FROM   Orders
-// WHERE  OrderAmount > 2000
-//        AND OrderDate < '01-SEP-08'
-//        AND AdvanceAmount < ANY (SELECT OutstandingAmount
-//                                 FROM   Customers
-//                                 WHERE  Grade = 3
-//                                        AND CustomerCountry <> 'India'
-//                                        AND OpeningAmount < 7000
-//                                        AND EXISTS (SELECT *
-//                                                    FROM   Agents
-//                                                    WHERE  Commission < 0.12));
-```
-
 ## 使用方式
 
 Rushia 的使用方式十分直覺與簡易，類似基本的 SQL 指令集但是更加地簡化了。
@@ -639,7 +557,74 @@ rushia.NewQuery("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 // Gives: INSERT LOW_PRIORITY IGNORE INTO Users ...
 ```
 
-# 相關連結
+## 複雜場景範例
+
+```go
+jobHistories := rushia.NewQuery("JobHistories").
+	WhereBetween("DepartmentID", 50, 100).
+	Select("JobID")
+jobs := rushia.NewQuery("Jobs").
+	WhereIn("JobID", jobHistories).
+	GroupBy("JobID").
+	Select("JobID", "AVG(MinSalary) AS MyAVG")
+maxAverage := rushia.NewQuery(jobs).
+	As("SS").
+	Select("MAX(MyAVG)")
+employees := rushia.NewQuery("Employees").
+	GroupBy("JobID").
+	Having("Avg(Salary)", "<", maxAverage).
+	Select("JobID", "AVG(Salary)")
+
+// 等效於：
+// SELECT JobID,
+//        AVG(Salary)
+// FROM   Employees
+// HAVING AVG(Salary) < (SELECT MAX(MyAVG)
+//                       FROM   (SELECT JobID,
+//                                      AVG(MinSalary) AS MyAVG
+//                               FROM   Jobs
+//                               WHERE  JobID IN (SELECT JobID
+//                                                FROM   JobHistories
+//                                                WHERE  DepartmentID BETWEEN 50
+//                                                       AND 100
+//                                               )
+//                               GROUP  BY JobID) AS SS)
+// GROUP  BY job_id;
+
+agents := rushia.NewQuery("Agents").
+	WhereValue("Commission", "<", 0.12).
+	Select()
+customers := rushia.NewQuery("Customers").
+	WhereValue("Grade", "=", 3).
+	WhereValue("CustomerCountry", "<>", "India").
+	WhereValue("OpeningAmount", "<", 7000).
+	WhereExists(agents).
+	Select("OutstandingAmount")
+orders := rushia.NewQuery("Orders").
+	WhereValue("OrderAmount", ">", 2000).
+	WhereValue("OrderDate", "<", "01-SEP-08").
+	WhereValue("AdvanceAmount", "<", NewExpr("ANY (?)", customers)).
+	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
+
+// 等效於：
+// SELECT OrderNum,
+//        OrderDate,
+//        OrderAmount,
+//        AdvanceAmount
+// FROM   Orders
+// WHERE  OrderAmount > 2000
+//        AND OrderDate < '01-SEP-08'
+//        AND AdvanceAmount < ANY (SELECT OutstandingAmount
+//                                 FROM   Customers
+//                                 WHERE  Grade = 3
+//                                        AND CustomerCountry <> 'India'
+//                                        AND OpeningAmount < 7000
+//                                        AND EXISTS (SELECT *
+//                                                    FROM   Agents
+//                                                    WHERE  Commission < 0.12));
+```
+
+## 相關連結
 
 這裡是 Rushia 受啟發，或是和資料庫有所關聯的連結。
 

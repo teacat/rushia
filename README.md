@@ -27,10 +27,6 @@ Install the package via `go get` command.
 $ go get github.com/teacat/rushia/v2
 ```
 
-## NULL values
-
-We suggest you to make all the columns in the database as non-nullable since Golang sucks at supporting NULL fields.
-
 ## Usage
 
 Rushia is easy to use, it's kinda like a SQL query but simplized.
@@ -563,7 +559,74 @@ rushia.NewQuery("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 // Gives: INSERT LOW_PRIORITY IGNORE INTO Users ...
 ```
 
-# References
+## Complex query example
+
+```go
+jobHistories := rushia.NewQuery("JobHistories").
+	WhereBetween("DepartmentID", 50, 100).
+	Select("JobID")
+jobs := rushia.NewQuery("Jobs").
+	WhereIn("JobID", jobHistories).
+	GroupBy("JobID").
+	Select("JobID", "AVG(MinSalary) AS MyAVG")
+maxAverage := rushia.NewQuery(jobs).
+	As("SS").
+	Select("MAX(MyAVG)")
+employees := rushia.NewQuery("Employees").
+	GroupBy("JobID").
+	Having("Avg(Salary)", "<", maxAverage).
+	Select("JobID", "AVG(Salary)")
+
+// Equals:
+// SELECT JobID,
+//        AVG(Salary)
+// FROM   Employees
+// HAVING AVG(Salary) < (SELECT MAX(MyAVG)
+//                       FROM   (SELECT JobID,
+//                                      AVG(MinSalary) AS MyAVG
+//                               FROM   Jobs
+//                               WHERE  JobID IN (SELECT JobID
+//                                                FROM   JobHistories
+//                                                WHERE  DepartmentID BETWEEN 50
+//                                                       AND 100
+//                                               )
+//                               GROUP  BY JobID) AS SS)
+// GROUP  BY job_id;
+
+agents := rushia.NewQuery("Agents").
+	WhereValue("Commission", "<", 0.12).
+	Select()
+customers := rushia.NewQuery("Customers").
+	WhereValue("Grade", "=", 3).
+	WhereValue("CustomerCountry", "<>", "India").
+	WhereValue("OpeningAmount", "<", 7000).
+	WhereExists(agents).
+	Select("OutstandingAmount")
+orders := rushia.NewQuery("Orders").
+	WhereValue("OrderAmount", ">", 2000).
+	WhereValue("OrderDate", "<", "01-SEP-08").
+	WhereValue("AdvanceAmount", "<", NewExpr("ANY (?)", customers)).
+	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
+
+// Equals:
+// SELECT OrderNum,
+//        OrderDate,
+//        OrderAmount,
+//        AdvanceAmount
+// FROM   Orders
+// WHERE  OrderAmount > 2000
+//        AND OrderDate < '01-SEP-08'
+//        AND AdvanceAmount < ANY (SELECT OutstandingAmount
+//                                 FROM   Customers
+//                                 WHERE  Grade = 3
+//                                        AND CustomerCountry <> 'India'
+//                                        AND OpeningAmount < 7000
+//                                        AND EXISTS (SELECT *
+//                                                    FROM   Agents
+//                                                    WHERE  Commission < 0.12));
+```
+
+## References
 
 Let's see what inspired Rushia.
 
