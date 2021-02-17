@@ -154,7 +154,7 @@ rushia.NewQuery("Users").Omit("Username").Insert(u)
 
 ### Insert
 
-Rushia provides a shorthand `H` alias for `H`, it the same as [`gin.H`](https://pkg.go.dev/github.com/gin-gonic/gin#H). You can pass a struct or a `H`, `H` into a Insert query.
+Rushia provides a shorthand `H` alias, stands for `map[string]interface{}`. It's the same as [`gin.H`](https://pkg.go.dev/github.com/gin-gonic/gin#H). You can pass a struct or a `H`, `H` into a Insert query.
 
 ```go
 rushia.NewQuery("Users").Insert(rushia.H{

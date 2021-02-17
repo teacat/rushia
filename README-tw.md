@@ -152,7 +152,7 @@ rushia.NewQuery("Users").Omit("Username").Insert(u)
 
 ### 插入
 
-Rushia 提供一個簡短的 `H`（`H` 別名），這趨近於 [`gin.H`](https://pkg.go.dev/github.com/gin-gonic/gin#H)。建立一個插入語法的時候可以傳入 `H`、`H` 或是結構體。
+Rushia 提供一個簡短的 `H`（`map[string]interface{}` 別名），這趨近於 [`gin.H`](https://pkg.go.dev/github.com/gin-gonic/gin#H)。建立一個插入語法的時候可以傳入 `H`、`H` 或是結構體。
 
 ```go
 rushia.NewQuery("Users").Insert(rushia.H{
