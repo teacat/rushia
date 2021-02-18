@@ -322,7 +322,7 @@ Specify the columns to select in the `Select` arguments, It colud also be a expr
 rushia.NewQuery("Users").Select("Username", "Nickname")
 // Equals: SELECT Username, Nickname FROM Users
 
-rushia.NewQuery("Users").Select(NewExpr("COUNT(*) AS Count"))
+rushia.NewQuery("Users").Select(rushia.NewExpr("COUNT(*) AS Count"))
 // Equals: SELECT COUNT(*) AS Count FROM Users
 ```
 
@@ -605,7 +605,7 @@ customers := rushia.NewQuery("Customers").
 orders := rushia.NewQuery("Orders").
 	WhereValue("OrderAmount", ">", 2000).
 	WhereValue("OrderDate", "<", "01-SEP-08").
-	WhereValue("AdvanceAmount", "<", NewExpr("ANY (?)", customers)).
+	WhereValue("AdvanceAmount", "<", rushia.NewExpr("ANY (?)", customers)).
 	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
 
 // Equals:
