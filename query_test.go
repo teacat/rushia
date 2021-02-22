@@ -878,13 +878,13 @@ func TestSubQuerySelect(t *testing.T) {
 
 func TestSubQueryInsert(t *testing.T) {
 	assert := assert.New(t)
-	subQuery := NewQuery("Users").Where("ID", 6).Select("Name")
+	subQuery := NewQuery("Users").Where("ID", 6).SelectOne("Name")
 	query, params := Build(NewQuery("Products").Insert(H{
 		"ProductName": "測試商品",
 		"UserID":      subQuery,
 		"LastUpdated": NewExpr("NOW()"),
 	}))
-	assertEqual(assert, "INSERT INTO Products (LastUpdated, ProductName, UserID) VALUES (NOW(), ?, (SELECT Name FROM Users WHERE ID = ?))", query)
+	assertEqual(assert, "INSERT INTO Products (LastUpdated, ProductName, UserID) VALUES (NOW(), ?, (SELECT Name FROM Users WHERE ID = ? LIMIT 1))", query)
 	assertParams(assert, []interface{}{"測試商品", 6}, params)
 }
 

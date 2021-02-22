@@ -321,7 +321,7 @@ rushia.NewQuery("Users").Select("Username", "Nickname")
 // 等效於：SELECT Username, Nickname FROM Users
 
 rushia.NewQuery("Users").Select(rushia.NewExpr("COUNT(*) AS Count"))
-// Equals: SELECT COUNT(*) AS Count FROM Users
+// 等效於：SELECT COUNT(*) AS Count FROM Users
 ```
 
 #### 單行資料
@@ -503,17 +503,17 @@ rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
 
 #### 插入
 
-插入新資料時也可以使用子指令。
+插入新資料時也可以使用子指令，但必須確保子指令只會回傳一個欄位與單行資料。
 
 ```go
-subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).Select("Name")
+subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).SelectOne("Name")
 
 rushia.NewQuery("Products").Insert(rushia.H{
 	"ProductName": "測試商品",
 	"UserID":      subQuery,
 	"LastUpdated": rushia.NewExpr("NOW()")
 })
-// Equals: INSERT INTO Products (ProductName, UserID, LastUpdated) VALUES (?, (SELECT Name FROM Users WHERE ID = 6), NOW())
+// 等效於：INSERT INTO Products (ProductName, UserID, LastUpdated) VALUES (?, (SELECT Name FROM Users WHERE ID = 6 LIMIT 1), NOW())
 ```
 
 #### 加入

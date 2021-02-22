@@ -505,17 +505,17 @@ rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
 
 #### Sub query insertion
 
-To insert a value from a sub query, simply use the query as a value.
+To insert a value from a sub query, simply use the query as a value and make sure the sub query only returns one column and one row as result.
 
 ```go
-subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).Select("Name")
+subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).SelectOne("Name")
 
 rushia.NewQuery("Products").Insert(rushia.H{
 	"ProductName": "測試商品",
 	"UserID":      subQuery,
 	"LastUpdated": rushia.NewExpr("NOW()")
 })
-// Equals: INSERT INTO Products (ProductName, UserID, LastUpdated) VALUES (?, (SELECT Name FROM Users WHERE ID = 6), NOW())
+// Equals: INSERT INTO Products (ProductName, UserID, LastUpdated) VALUES (?, (SELECT Name FROM Users WHERE ID = 6 LIMIT 1), NOW())
 ```
 
 #### Sub query joining
