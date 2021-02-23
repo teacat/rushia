@@ -143,12 +143,14 @@ Ignore the fields in the SQL query by using `Omit`.
 type User struct {
 	Username string
 	Password string
+	Age      int    `rushia:"my_age"`
 }
 u := User{
 	Username: "YamiOdymel",
 	Password: "test",
+	Age     : "32"
 }
-rushia.NewQuery("Users").Omit("Username").Insert(u)
+rushia.NewQuery("Users").Omit("Username", "my_age").Insert(u)
 // Equals: INSERT INTO Users (Password) VALUES (?)
 ```
 

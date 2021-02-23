@@ -178,7 +178,7 @@ func TestInsertStructOmit(t *testing.T) {
 	assertParams(assert, []interface{}{"test"}, params)
 }
 
-func TestInsertStructTagOmit(t *testing.T) {
+func TestInsertStructOmitByTag(t *testing.T) {
 	u := struct {
 		Username string `rushia:"-"`
 		Password string
@@ -188,6 +188,20 @@ func TestInsertStructTagOmit(t *testing.T) {
 	}
 	assert := assert.New(t)
 	query, params := Build(NewQuery("Users").Insert(u))
+	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
+	assertParams(assert, []interface{}{"test"}, params)
+}
+
+func TestInsertStructTagOmit(t *testing.T) {
+	assert := assert.New(t)
+	u := struct {
+		Username string `rushia:"user_name"`
+		Password string
+	}{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	query, params := Build(NewQuery("Users").Omit("user_name").Insert(u))
 	assertEqual(assert, "INSERT INTO Users (Password) VALUES (?)", query)
 	assertParams(assert, []interface{}{"test"}, params)
 }
