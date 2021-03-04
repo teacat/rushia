@@ -112,6 +112,21 @@ func TestInsertStruct(t *testing.T) {
 	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
 }
 
+func TestInsertStructPointer(t *testing.T) {
+	type user struct {
+		Username string
+		Password string
+	}
+	u := &user{
+		Username: "YamiOdymel",
+		Password: "test",
+	}
+	assert := assert.New(t)
+	query, params := Build(NewQuery("Users").Insert(u))
+	assertEqual(assert, "INSERT INTO Users (Username, Password) VALUES (?, ?)", query)
+	assertParams(assert, []interface{}{"YamiOdymel", "test"}, params)
+}
+
 func TestInsert(t *testing.T) {
 	assert := assert.New(t)
 	query, params := Build(NewQuery("Users").Insert(H{

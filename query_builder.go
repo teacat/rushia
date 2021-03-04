@@ -553,8 +553,18 @@ func (q *Query) flattenH(data H) (columns []string, values []interface{}) {
 func (q *Query) structToH(data interface{}) H {
 	h := make(H)
 
-	t := reflect.TypeOf(data)
-	v := reflect.ValueOf(data)
+	var t reflect.Type
+	var v reflect.Value
+
+	// Get the real data type underneath the pointer if the data is a pointer.
+	if reflect.TypeOf(data).Kind() == reflect.Ptr {
+		t = reflect.Indirect(reflect.ValueOf(data)).Type()
+		v = reflect.Indirect(reflect.ValueOf(data))
+	} else {
+		t = reflect.TypeOf(data)
+		v = reflect.ValueOf(data)
+	}
+
 	for i := 0; i < t.NumField(); i++ {
 		k := t.Field(i).Name
 		if name, ok := t.Field(i).Tag.Lookup("rushia"); ok {
