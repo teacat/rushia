@@ -213,7 +213,7 @@ rushia.NewQuery("Users").As("New").OnDuplicate(rushia.H{
 	"Username":  "YamiOdymel",
 	"UpdatedAt": rushia.NewExpr("NOW()"),
 })
-// Equals: INSERT INTO Users (Username, UpdatedAt) VALUES (?, NOW()) ON DUPLICATE KEY UPDATE UpdatedAt = New.UpdatedAt
+// Equals: INSERT INTO Users (Username, UpdatedAt) VALUES (?, NOW()) AS New ON DUPLICATE KEY UPDATE UpdatedAt = New.UpdatedAt
 
 rushia.NewQuery("Users").OnDuplicate(rushia.H{
 	"UpdatedAt": rushia.NewExpr("VALUES(UpdatedAt)"),
