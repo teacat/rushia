@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -665,6 +666,10 @@ func TestWhereBetween(t *testing.T) {
 	query, params = Build(NewQuery("Users").Where("ID", "NOT BETWEEN", 0, 20).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID NOT BETWEEN ? AND ?", query)
 	assertParams(assert, []interface{}{0, 20}, params)
+
+	query, params = Build(NewQuery("Users").Where("ID", "BETWEEN", time.Now(), time.Now().Add(time.Second*60)).Select())
+	assertEqual(assert, "SELECT * FROM Users WHERE ID BETWEEN ? AND ?", query)
+	assertParams(assert, []interface{}{time.Now(), time.Now().Add(time.Second * 60)}, params)
 }
 
 func TestWhereIn(t *testing.T) {
