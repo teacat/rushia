@@ -37,13 +37,13 @@ func (q *Query) WhereLike(column string, v interface{}) *Query {
 }
 
 // WhereBetween
-func (q *Query) WhereBetween(column string, start, end int) *Query {
+func (q *Query) WhereBetween(column string, start, end interface{}) *Query {
 	q.Where(column, "BETWEEN", start, end)
 	return q
 }
 
 // WhereNotBetween
-func (q *Query) WhereNotBetween(column string, start, end int) *Query {
+func (q *Query) WhereNotBetween(column string, start, end interface{}) *Query {
 	q.Where(column, "NOT BETWEEN", start, end)
 	return q
 }
@@ -119,13 +119,13 @@ func (q *Query) OrWhereLike(column string, v interface{}) *Query {
 }
 
 // OrWhereBetween
-func (q *Query) OrWhereBetween(column string, start, end int) *Query {
+func (q *Query) OrWhereBetween(column string, start, end interface{}) *Query {
 	q.OrWhere(column, "BETWEEN", start, end)
 	return q
 }
 
 // OrWhereNotBetween
-func (q *Query) OrWhereNotBetween(column string, start, end int) *Query {
+func (q *Query) OrWhereNotBetween(column string, start, end interface{}) *Query {
 	q.OrWhere(column, "NOT BETWEEN", start, end)
 	return q
 }
@@ -201,13 +201,13 @@ func (q *Query) JoinLike(column string, v interface{}) *Query {
 }
 
 // JoinBetween
-func (q *Query) JoinBetween(column string, start, end int) *Query {
+func (q *Query) JoinBetween(column string, start, end interface{}) *Query {
 	q.JoinWhere(column, "BETWEEN", start, end)
 	return q
 }
 
 // JoinNotBetween
-func (q *Query) JoinNotBetween(column string, start, end int) *Query {
+func (q *Query) JoinNotBetween(column string, start, end interface{}) *Query {
 	q.JoinWhere(column, "NOT BETWEEN", start, end)
 	return q
 }
@@ -283,13 +283,13 @@ func (q *Query) OrJoinLike(column string, v interface{}) *Query {
 }
 
 // OrJoinBetween
-func (q *Query) OrJoinBetween(column string, start, end int) *Query {
+func (q *Query) OrJoinBetween(column string, start, end interface{}) *Query {
 	q.OrJoinWhere(column, "BETWEEN", start, end)
 	return q
 }
 
 // OrJoinNotBetween
-func (q *Query) OrJoinNotBetween(column string, start, end int) *Query {
+func (q *Query) OrJoinNotBetween(column string, start, end interface{}) *Query {
 	q.OrJoinWhere(column, "NOT BETWEEN", start, end)
 	return q
 }
@@ -365,13 +365,13 @@ func (q *Query) HavingLike(column string, v interface{}) *Query {
 }
 
 // HavingBetween
-func (q *Query) HavingBetween(column string, start, end int) *Query {
+func (q *Query) HavingBetween(column string, start, end interface{}) *Query {
 	q.Having(column, "BETWEEN", start, end)
 	return q
 }
 
 // HavingNotBetween
-func (q *Query) HavingNotBetween(column string, start, end int) *Query {
+func (q *Query) HavingNotBetween(column string, start, end interface{}) *Query {
 	q.Having(column, "NOT BETWEEN", start, end)
 	return q
 }
@@ -447,13 +447,13 @@ func (q *Query) OrHavingLike(column string, v interface{}) *Query {
 }
 
 // OrHavingBetween
-func (q *Query) OrHavingBetween(column string, start, end int) *Query {
+func (q *Query) OrHavingBetween(column string, start, end interface{}) *Query {
 	q.OrHaving(column, "BETWEEN", start, end)
 	return q
 }
 
 // OrHavingNotBetween
-func (q *Query) OrHavingNotBetween(column string, start, end int) *Query {
+func (q *Query) OrHavingNotBetween(column string, start, end interface{}) *Query {
 	q.OrHaving(column, "NOT BETWEEN", start, end)
 	return q
 }
