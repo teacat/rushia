@@ -371,11 +371,14 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 
 ### Table alias
 
-When creating a sub query or table joins, you might need `As` to assign an alias to a table.
+`As` assign an alias to the query, it's useful if you are creating a sub query. In a joining or common scenario, use `NewAlias` instead.
 
 ```go
-rushia.NewQuery("Users").As("U").Select()
-// Equals: SELECT * FROM Users AS U
+rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
+// Equals: SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
+
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID", "=", 5).Select()
+// Equals: SELECT * FROM UserFriendRelationships AS relations WHERE ID = ?
 ```
 
 ### Raw Query

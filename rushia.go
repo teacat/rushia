@@ -2,6 +2,7 @@ package rushia
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -193,6 +194,11 @@ func NewExpr(query string, params ...interface{}) *Expr {
 		rawQuery: query,
 		params:   params,
 	}
+}
+
+// NewAlias creates an alias for a table.
+func NewAlias(table string, alias string) string {
+	return fmt.Sprintf("%s AS %s", table, alias)
 }
 
 // Build builds the Query.

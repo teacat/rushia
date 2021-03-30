@@ -369,11 +369,14 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 
 ### 表格別名
 
-有些時候需要幫表格建立別名（或建立子指令時），透過 `As` 就能做到。
+`As` 能夠替目前的查詢語句賦予表格別名，通常會應用在子查詢。若是在表格加入（JOIN）或是一般場景，則可以使用 `NewAlias`。
 
 ```go
-rushia.NewQuery("Users").As("U").Select()
-// 等效於：SELECT * FROM Users AS U
+rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
+// 等效於：SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
+
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID", "=", 5).Select()
+// 等效於： SELECT * FROM UserFriendRelationships AS relations WHERE ID = ?
 ```
 
 ### 執行生指令

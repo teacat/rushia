@@ -753,6 +753,16 @@ func TestRawWhere(t *testing.T) {
 }
 
 //=======================================================
+// As
+//=======================================================
+
+func TestAs(t *testing.T) {
+	assert := assert.New(t)
+	query, _ := Build(NewQuery(NewAlias("Products", "p")).Select())
+	assertEqual(assert, "SELECT * FROM Products AS p", query)
+}
+
+//=======================================================
 // Distinct
 //=======================================================
 
