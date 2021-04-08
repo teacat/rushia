@@ -375,8 +375,8 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
 // 等效於：SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
 
-rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID", "=", 5).Select()
-// 等效於： SELECT * FROM UserFriendRelationships AS relations WHERE ID = ?
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).WhereValue("relations.ID", "=", 5).Select()
+// 等效於： SELECT * FROM UserFriendRelationships AS relations relations.WHERE ID = ?
 ```
 
 ### 執行生指令
@@ -577,7 +577,7 @@ maxAverage := rushia.NewQuery(jobs).
 	Select("MAX(MyAVG)")
 employees := rushia.NewQuery("Employees").
 	GroupBy("JobID").
-	Having("Avg(Salary)", "<", maxAverage).
+	HavingValue("AVG(Salary)", "<", maxAverage).
 	Select("JobID", "AVG(Salary)")
 
 // 等效於：

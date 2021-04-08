@@ -377,8 +377,8 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
 // Equals: SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
 
-rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID", "=", 5).Select()
-// Equals: SELECT * FROM UserFriendRelationships AS relations WHERE ID = ?
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).WhereValue("relations.ID", "=", 5).Select()
+// Equals: SELECT * FROM UserFriendRelationships AS relations WHERE relations.ID = ?
 ```
 
 ### Raw Query
@@ -579,7 +579,7 @@ maxAverage := rushia.NewQuery(jobs).
 	Select("MAX(MyAVG)")
 employees := rushia.NewQuery("Employees").
 	GroupBy("JobID").
-	Having("Avg(Salary)", "<", maxAverage).
+	HavingValue("AVG(Salary)", "<", maxAverage).
 	Select("JobID", "AVG(Salary)")
 
 // Equals:

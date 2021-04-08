@@ -1011,7 +1011,7 @@ func TestComplexQueries(t *testing.T) {
 		Select("MAX(MyAVG)")
 	employees := NewQuery("Employees").
 		GroupBy("JobID").
-		Having("Avg(Salary)", "<", maxAverage).
+		HavingValue("AVG(Salary)", "<", maxAverage).
 		Select("JobID", "AVG(Salary)")
 	query, params := Build(employees)
 
