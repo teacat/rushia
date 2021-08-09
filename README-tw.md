@@ -437,7 +437,7 @@ rushia.NewQuery("Users").WhereColumn("ID", "!=", "CompanyID").WhereRaw("DATE(Cre
 Rushia 亦支援排序功能，如遞增或遞減，亦能擺放函式。
 
 ```go
-rushia.NewQuery("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()").Select()
+rushia.NewQuery("Users").OrderBy("ID ASC").OrderBy("Login DESC").OrderBy("RAND()").Select()
 // 等效於：SELECT * FROM Users ORDER BY ID ASC, Login DESC, RAND()
 ```
 

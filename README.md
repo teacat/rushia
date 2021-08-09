@@ -439,7 +439,7 @@ rushia.NewQuery("Users").WhereColumn("ID", "!=", "CompanyID").WhereRaw("DATE(Cre
 Ordering is also supported in Rushia and can be used with functions.
 
 ```go
-rushia.NewQuery("Users").OrderBy("ID", "ASC").OrderBy("Login", "DESC").OrderBy("RAND()").Select()
+rushia.NewQuery("Users").OrderBy("ID ASC").OrderBy("Login DESC").OrderBy("RAND()").Select()
 // Equals: SELECT * FROM Users ORDER BY ID ASC, Login DESC, RAND()
 ```
 
