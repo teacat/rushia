@@ -292,110 +292,53 @@ func (q *Query) buildJoin() string {
 	return q.trim(jqu)
 }
 
-func (q *Query) buildConditions(c []condition) string {
+func removeIndex(s []interface{}, index int) []interface{} {
+	return append(s[:index], s[index+1:]...)
+}
+
+func (q *Query) buildConditions(conditions []condition) string {
 	var qu string
-	for i, j := range c {
+	for i, condition := range conditions {
 		// Don't apply the AND/OR connector to the first item.
 		if i != 0 {
-			qu += fmt.Sprintf("%s ", j.connector.toQuery())
+			qu += fmt.Sprintf("%s ", condition.connector.toQuery())
 		}
-		// Judge the type of the first argument.
-		typ := "String"
-		switch v := j.args[0].(type) {
-		case string:
-			if strings.Contains(v, "?") || strings.Contains(v, "(") || len(j.args) == 1 {
-				typ = "Query"
-
-				// NOTE: Workaround for `.Having("Avg(Column)", "<", subQuery)`
-				if len(j.args) == 3 {
-					if _, ok := j.args[2].(*Query); ok {
-						typ = "String"
-					}
-				}
-			}
-		case *Expr:
-			typ = "Expr"
+		if len(condition.args) == 0 {
+			qu += fmt.Sprintf("%s ", condition.query)
+			continue
 		}
-
-		// Build the query by the amount of the arguments.
-		switch len(j.args) {
-		// ※ Query, String
-		// .Where("Column = Column")
-		// ※ Expr
-		// .Where(NewExpr("Column = ?", "Value"))
-		// .Where(NewExpr("EXISTS ?", subQuery))
-		case 1:
-			switch typ {
-			case "Query", "String":
-				qu += fmt.Sprintf("%s ", j.args[0].(string))
-			case "Expr":
-				qu += fmt.Sprintf("%s ", q.bindParam(j.args[0].(*Expr), nil))
-			}
-
-		// ※ Query
-		// .Where("Column = ?", "Value")
-		// ※ String
-		// .Where("Column", "Value")
-		// .Where("Column", NewExpr("= Column"))
-		// .Where("EXISTS", subQuery)
-		case 2:
-			switch typ {
-			case "Query":
-				q.bindParam(j.args[1], nil)
-				qu += fmt.Sprintf("%s ", j.args[0].(string))
-			case "String":
-				p := q.bindParam(j.args[1], nil)
-				switch j.args[0].(string) {
-				case "NOT EXISTS", "EXISTS":
-					qu += fmt.Sprintf("%s %s ", j.args[0].(string), p)
-				default:
-					qu += fmt.Sprintf("%s = %s ", j.args[0].(string), p)
-				}
-			}
-
-		// ※ Query
-		// .Where("(Column = ? OR Column = ?)", "A", "B")
-		// ※ String
-		// .Where("Column", ">", "Value")
-		// .Where("Column", ">", NewExpr("ANY (Query)"))
-		// .Where("Column", "IN", subQuery)
-		// .Where("Column", "IS", nil)
-		// .Having("Avg(Column)", "<", subQuery)
-		case 3:
-			switch typ {
-			case "Query":
-				q.bindParams(j.args[1:], nil)
-				qu += fmt.Sprintf("%s ", j.args[0].(string))
-			case "String":
-				switch j.args[1].(string) {
-				case "IN", "NOT IN":
-					qu += fmt.Sprintf("%s %s (%s) ", j.args[0].(string), j.args[1].(string), q.bindParam(j.args[2], &bindOptions{
-						noParentheses: true,
-					}))
-				default:
-					qu += fmt.Sprintf("%s %s %s ", j.args[0].(string), j.args[1].(string), q.bindParam(j.args[2], nil))
-				}
-			}
-
-		// ※ Query
-		// .Where("(Column = ? OR Column = ? OR Column = ?)", "Value", "Value", "Value")
-		// ※ String
-		// .Where("Column", "BETWEEN", 1, 20)
-		// .Where("Column", "IN", 1, "foo", 20)
-		default:
-			switch typ {
-			case "Query":
-				q.bindParams(j.args[1:], nil)
-				qu += fmt.Sprintf("%s ", j.args[0].(string))
-			case "String":
-				switch j.args[1].(string) {
-				case "BETWEEN", "NOT BETWEEN":
-					qu += fmt.Sprintf("%s %s %s AND %s ", j.args[0].(string), j.args[1].(string), q.bindParam(j.args[2], nil), q.bindParam(j.args[3], nil))
-				case "IN", "NOT IN":
-					qu += fmt.Sprintf("%s %s (%s) ", j.args[0].(string), j.args[1].(string), q.bindParams(j.args[2:], nil))
-				}
-			}
+		// ?
+		if !strings.Contains(condition.query, "?") {
+			panic("rushia: incorrect where condition usage")
 		}
+		//
+		escapes := strings.Count(condition.query, "??")
+		for i := 0; i < escapes; i++ {
+			condition.query = replaceNth(condition.query, "??", fmt.Sprintf("`%s`", condition.args[i]), i+1)
+			condition.args = removeIndex(condition.args, i)
+		}
+		//
+		for argIndex, arg := range condition.args {
+			//
+			if v, ok := arg.(*Query); ok {
+				query, params := Build(v)
+				condition.query = replaceNth(condition.query, "?", query, argIndex+1)
+				q.bindParams(params, nil)
+				continue
+			}
+			//
+			if reflect.TypeOf(arg).Kind() == reflect.Slice {
+				var params []interface{}
+				s := reflect.ValueOf(arg)
+				for i := 0; i < s.Len(); i++ {
+					params = append(params, s.Index(i).Interface())
+				}
+				condition.query = replaceNth(condition.query, "?", fmt.Sprintf("(%s)", q.bindParams(params, nil)), argIndex+1)
+				continue
+			}
+			q.bindParam(arg, nil)
+		}
+		qu += fmt.Sprintf("%s ", condition.query)
 	}
 	return q.trim(qu)
 }
@@ -444,7 +387,7 @@ func (q *Query) buildGroupBy() string {
 func (q *Query) buildLimit() string {
 	if q.limit.from != 0 && q.limit.count == 0 {
 		return fmt.Sprintf("LIMIT %d", q.limit.from)
-	} else if q.limit.from != 0 && q.limit.count != 0 {
+	} else if q.limit.count != 0 {
 		return fmt.Sprintf("LIMIT %d, %d", q.limit.from, q.limit.count)
 	} else {
 		return ""
@@ -647,7 +590,8 @@ func (q *Query) putJoin(typ joinType, t interface{}, conditions ...interface{}) 
 	if len(conditions) != 0 {
 		j.conditions = []condition{
 			{
-				args: conditions,
+				query: conditions[0].(string),
+				args:  conditions[1:],
 				// It's fine to be `And` or `Or`
 				// since the build doesn't build the first connector.
 				connector: connectorTypeAnd,
