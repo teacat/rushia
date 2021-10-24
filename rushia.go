@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 var (
@@ -94,6 +95,7 @@ func (t insertType) toQuery() string {
 }
 
 type condition struct {
+	query     string
 	args      []interface{}
 	connector connectorType
 }
@@ -141,8 +143,6 @@ type Query struct {
 	typ      queryType
 	subQuery *Query
 
-	query string
-
 	table        interface{}
 	wheres       []condition
 	havings      []condition
@@ -181,6 +181,9 @@ func NewQuery(table interface{}) *Query {
 
 // NewRawQuery creates a Query based on the passed in raw query and the parameters.
 func NewRawQuery(q string, params ...interface{}) *Query {
+	if strings.Contains(q, "??") {
+		panic("rushia: raw query doesn't support escape ?? sign yet")
+	}
 	return &Query{
 		typ:      queryTypeRawQuery,
 		rawQuery: q,

@@ -45,10 +45,10 @@ By default, Rushia creates a pointer query where you will always modify to the s
 
 ```go
 a := rushia.NewQuery("Users")
-a.WhereValue("Type", "=", "VIP")
+a.Where("Type = ?", "VIP")
 
 b := a.Copy()
-b.WhereValue("Name", "=", "YamiOdymel")
+b.Where("Name = ?", "YamiOdymel")
 
 Build(a.Select())
 // Equals: SELECT * FROM Users WHERE Type = ?
@@ -74,7 +74,7 @@ Since Rushia is just a SQL Builder, you are able to use it with any other databa
 db, err := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
 
 // Build the query via Rushia.
-q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // Pass the query and the parameters to SQLX to execute.
@@ -89,7 +89,7 @@ Or [go-gorm/gorm](https://github.com/go-gorm/gorm) if you like:
 db, err := gorm.Open(mysql.Open("root:password@tcp(localhost:3306)/db"), &gorm.Config{})
 
 // Build the query via Rushia.
-q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // Pass the query and the parameters to Gorm to execute.
@@ -260,12 +260,24 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 // Equals: SELECT * from Users LIMIT 10 OFFSET 20
 ```
 
+### Paginate
+
+`Paginate` 是一個較親近於人類的友善好函式，其用法為 `頁數, 單筆數量`。例如：`1, 20` 會取得從 `0` 開始後面的 20 筆資料，而 `2, 20` 則會從 `21` 開始後面的 20 筆資料。
+
+```go
+rushia.NewQuery("Users").Paginate(1, 20).Select()
+// 等效於：SELECT * from Users LIMIT 0, 20
+
+rushia.NewQuery("Users").Paginate(2, 20).Select()
+// 等效於：SELECT * from Users LIMIT 20, 20
+```
+
 ### Update
 
 To update a data in Rushia is easy as a rocket launch (wat? (todo: update this description later)).
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Update(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Update(rushia.H{
 	"Username": "Karisu",
 	"Password": "123456",
 })
@@ -277,7 +289,7 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Update(rushia
 By using `Patch`, it's possible to ignore the zero value fields while updating.
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Patch(rushia.H{
 	"Age": 0,
 	"Username": "",
 	"Password": "123456",
@@ -290,7 +302,7 @@ With `Exclude`, you can also exclude the fields to force it update even if it's 
 Any fields that was excluded will still be updated even if it's a zero value.
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
 	"Age":      0,
 	"Username": "",
 	"Password": "123456",
@@ -303,7 +315,7 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("User
 Deletes everything! Remember to add a condition to prevent it really deletes everything.
 
 ```go
-rushia.NewQuery("Users").WhereValue("ID", "=", 1).Delete()
+rushia.NewQuery("Users").Where("ID = ", 1).Delete()
 // Equals: DELETE FROM Users WHERE ID = ?
 ```
 
@@ -365,7 +377,7 @@ rushia.NewQuery("Users").UnionAll(locationQuery).Select()
 To execute `SELECT EXISTS` by calling `Exists`.
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Exists()
 // Equals: SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)
 ```
 
@@ -374,10 +386,10 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 `As` assign an alias to the query, it's useful if you are creating a sub query. In a joining or common scenario, use `NewAlias` instead.
 
 ```go
-rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
+rushia.NewQuery(NewQuery("Users").Select()).As("Result").Where("Username = ?", "YamiOdymel").Select())
 // Equals: SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
 
-rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).WhereValue("relations.ID", "=", 5).Select()
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID = ?", 5).Select()
 // Equals: SELECT * FROM UserFriendRelationships AS relations WHERE relations.ID = ?
 ```
 
@@ -397,41 +409,39 @@ q := rushia.NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10)
 
 To define a `WHERE` or `HAVING` condition in Rushia is a piece of cake!
 
-| SQL Query                                          | Alias Functions                                                                |
-| -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Column = ?`<br>`Column > ?`                       | `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` |
-| `Column = Column`                                  | `.WhereColumn("Column", "=", "Column")`                                        |
-| `Column IN ?`<br>`Column NOT IN ?`                 | `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  |
-| `Column BETWEEN ?, ?`<br>`Column NOT BETWEEN ?, ?` | `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        |
-| `Column IS NULL`<br>`Column IS NOT NULL`           | `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        |
-| `Column Exists Query`<br>`Column NOT EXISTS Query` | `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    |
-| `Column LIKE ?`<br>`Column NOT LIKE ?`             | `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          |
-| `(Column = Column OR Column = ?)`                  | `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        |
-
-And the alias functions are actually using a `Where` method.
-
-| Alias Function                                                                 | Equals                                                                                 |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` | `.Where("Column", "Value")`<br>`.Where("Column", ">", "Value")`                        |
-| `.WhereColumn("Column", "=", "Column")`                                        | `.Where("Column = Column")`                                                            |
-| `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  | `.Where("Column", "IN", "A", "B", "C")`<br>`.Where("Column", "NOT IN", "A", "B", "C")` |
-| `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        | `.Where("Column", "BETWEEN", 1, 20)`<br>`.Where("Column", "NOT BETWEEN", 1, 20)`       |
-| `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        | `.Where("Column", "IS", nil)`<br>`.Where("Column", "IS NOT", nul)`                     |
-| `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    | `.Where("EXISTS", subQuery)`<br>`.Where("NOT EXISTS", subQuery)`                       |
-| `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          | `.Where("Column", "LIKE", "Value")`<br>`.Where("Column", "NOT LIKE", "Value")`         |
-| `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        | `.Where("(Column = Column OR Column = ?)", "Value")`                                   |
+| SQL Query                                                | Usage                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Column = ?`<br>`Column > ?`                             | `.Where("Column = ?", "Value")`<br>`.Where("Column > ?", "Value")`                         |
+| `Column = Column`                                        | `.Where("Column = Column")`                                                                |
+| `Column IN (?, ?)`<br>`Column NOT IN (?, ?)`             | `.Where("Column IN (?, ?)", "A", "B")`<br>`.Where("Column NOT IN (?, ?)", "A", "B")`       |
+| `Column IN (?, ?)`                                       | `.Where("Column IN ?", []interface{}{"A", "B"})`                                           |
+| `Column BETWEEN ? AND ?`<br>`Column NOT BETWEEN ? AND ?` | `.Where("Column BETWEEN ? AND ?", 1, 20)`<br>`.Where("Column NOT BETWEEN ? AND ?", 1, 20)` |
+| `Column IS NULL`<br>`Column IS NOT NULL`                 | `.Where("Column IS NULL")`<br>`.Where("Column IS NOT NULL")`                               |
+| `Column EXISTS Query`<br>`Column NOT EXISTS Query`       | `.Where("Column EXISTS ?", subQuery)`<br>`.Where("Column NOT EXISTS ?", subQuery)`         |
+| `Column LIKE ?`<br>`Column NOT LIKE ?`                   | `.Where("Column LIKE ?", "Value")`<br>`.Where("Column NOT LIKE ?", "Value")`               |
+| `(Column = Column OR Column = ?)`                        | `.Where("(Column = Column OR Column = ?)", "Value")`                                       |
 
 The condition functions has it's own transform for `Where`, `OrWhere`, `Having`, `OrHaving`, `JoinWhere`, `OrJoinWhere`.
 
 ```go
-rushia.NewQuery("Users").WhereValue("ID", "=", 1).WhereValue("Username", "=", "admin").Select()
+rushia.NewQuery("Users").Where("ID = ?", 1).Where("Username = ?", "admin").Select()
 // Equals: SELECT * FROM Users WHERE ID = ? AND Username = ?
 
-rushia.NewQuery("Users").HavingValue("ID", "=", 1).HavingValue("Username", "=", "admin").Select()
+rushia.NewQuery("Users").Having("ID = ?", 1).Having("Username = ?", "admin").Select()
 // Equals: SELECT * FROM Users HAVING ID = ? AND Username = ?
 
-rushia.NewQuery("Users").WhereColumn("ID", "!=", "CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").Select()
+rushia.NewQuery("Users").WhereC("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // Equals: SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
+```
+
+### Escaped Values
+
+The same usage as `??` double question marks in [mysqljs/mysql](https://github.com/mysqljs/mysql) package, it's possible to escape the values with backticks ``` by using`??`. It's useful for column names.
+
+```go
+var ColumnUserID = "ID"
+rushia.NewQuery("Users").Where("?? = ?", ColumnUserID, 3).Select()
+// Equals: SELECT * FROM Users WHERE `ID` = ?
 ```
 
 ### Order
@@ -471,15 +481,21 @@ rushia.
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
 	Select("Users.Name", "Products.ProductName")
 // Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID)
+
+rushia.
+	NewQuery("Products").
+	LeftJoin("Users", "Products.TenantID = ?", 3).
+	Select("Users.Name", "Products.ProductName")
+// Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = ?)
 ```
 
-Or just omit the raw condition and define it later in the function chaining.
+Or just omit the condition and define it later in the function chaining.
 
 ```go
 rushia.
 	NewQuery("Products").
 	LeftJoin("Users").
-	JoinWhereColumn("Products.TenantID", "=", "Users.TenantID")
+	JoinWhere("Products.TenantID = Users.TenantID")
 	Select("Users.Name", "Products.ProductName")
 // Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID)
 ```
@@ -492,7 +508,7 @@ With `JoinWhere` or `OrJoinWhere` to expand the conditions for the table joins. 
 rushia.
 	NewQuery("Products").
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
-	OrJoinWhereValue("Users.TenantID", "=", 5).
+	OrJoinWhere("Users.TenantID = ?", 5).
 	Select("Users.Name", "Products.ProductName")
 // Equals: SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID OR Users.TenantID = ?)
 ```
@@ -513,7 +529,7 @@ rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
 To insert a value from a sub query, simply use the query as a value and make sure the sub query only returns one column and one row as result.
 
 ```go
-subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).SelectOne("Name")
+subQuery := rushia.NewQuery("Users").Where("ID = ?", 6).SelectOne("Name")
 
 rushia.NewQuery("Products").Insert(rushia.H{
 	"ProductName": "測試商品",
@@ -528,7 +544,7 @@ rushia.NewQuery("Products").Insert(rushia.H{
 Join a table from a sub query is possible, but requires to assign an alias to the sub query by using `As`.
 
 ```go
-subQuery := rushia.NewQuery("Users").As("Users").WhereValue("Active", "=", 1).Select()
+subQuery := rushia.NewQuery("Users").As("Users").Where("Active = ?", 1).Select()
 
 rushia.
 	NewQuery("Products").
@@ -545,7 +561,7 @@ Passing a sub query to a raw query or an expression will automatically looking f
 subQuery := rushia.NewQuery("Locations").Select()
 rawQuery := rushia.NewRawQuery("SELECT UserID FROM Users WHERE EXISTS (?)", subQuery)
 
-NewQuery("Products").WhereExists(rawQuery).Select()
+NewQuery("Products").Where("EXISTS ?", rawQuery).Select()
 // Equals: SELECT * FROM Products WHERE EXISTS (SELECT UserID FROM Users WHERE EXISTS (SELECT * FROM Locations))
 ```
 
@@ -568,10 +584,10 @@ rushia.NewQuery("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 
 ```go
 jobHistories := rushia.NewQuery("JobHistories").
-	WhereBetween("DepartmentID", 50, 100).
+	Where("DepartmentID BETWEEN ? AND ?", 50, 100).
 	Select("JobID")
 jobs := rushia.NewQuery("Jobs").
-	WhereIn("JobID", jobHistories).
+	Where("JobID IN ?", jobHistories).
 	GroupBy("JobID").
 	Select("JobID", "AVG(MinSalary) AS MyAVG")
 maxAverage := rushia.NewQuery(jobs).
@@ -579,7 +595,7 @@ maxAverage := rushia.NewQuery(jobs).
 	Select("MAX(MyAVG)")
 employees := rushia.NewQuery("Employees").
 	GroupBy("JobID").
-	HavingValue("AVG(Salary)", "<", maxAverage).
+	Having("AVG(Salary) < ?", maxAverage).
 	Select("JobID", "AVG(Salary)")
 
 // Equals:
@@ -599,18 +615,18 @@ employees := rushia.NewQuery("Employees").
 // GROUP  BY job_id;
 
 agents := rushia.NewQuery("Agents").
-	WhereValue("Commission", "<", 0.12).
+	Where("Commission < ?", 0.12).
 	Select()
 customers := rushia.NewQuery("Customers").
-	WhereValue("Grade", "=", 3).
-	WhereValue("CustomerCountry", "<>", "India").
-	WhereValue("OpeningAmount", "<", 7000).
-	WhereExists(agents).
+	Where("Grade = ?", 3).
+	Where("CustomerCountry <> ?", "India").
+	Where("OpeningAmount < ?", 7000).
+	Where("EXISTS ?", agents).
 	Select("OutstandingAmount")
 orders := rushia.NewQuery("Orders").
-	WhereValue("OrderAmount", ">", 2000).
-	WhereValue("OrderDate", "<", "01-SEP-08").
-	WhereValue("AdvanceAmount", "<", rushia.NewExpr("ANY (?)", customers)).
+	Where("OrderAmount > ?", 2000).
+	Where("OrderDate < ?", "01-SEP-08").
+	Where("AdvanceAmount < ANY (?)", customers).
 	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
 
 // Equals:
@@ -639,3 +655,7 @@ Let's see what inspired Rushia.
 -   [jmoiron/sqlx](https://github.com/jmoiron/sqlx)
 -   [russross/meddler](https://github.com/russross/meddler)
 -   [jinzhu/gorm](https://github.com/jinzhu/gorm)
+-   [doug-martin/goqu](https://github.com/doug-martin/goqu)
+-   [gocraft/dbr](https://github.com/gocraft/dbr)
+-   [go-ozzo/ozzo-dbx](https://github.com/go-ozzo/ozzo-dbx)
+-   [kyleconroy/sqlc](https://github.com/kyleconroy/sqlc)

@@ -45,10 +45,10 @@ q := rushia.NewQuery("Users")
 
 ```go
 a := rushia.NewQuery("Users")
-a.WhereValue("Type", "=", "VIP")
+a.Where("Type = ?", "VIP")
 
 b := a.Copy()
-b.WhereValue("Name", "=", "YamiOdymel")
+b.Where("Name = ?", "YamiOdymel")
 
 Build(a.Select())
 // 等效於：SELECT * FROM Users WHERE Type = ?
@@ -74,7 +74,7 @@ query, params := rushia.Build(rushia.NewQuery("Users").Select())
 db, err := sqlx.Open("mysql", "root:password@tcp(localhost:3306)/db")
 
 // 透過 Rushia 建置語法。
-q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").Where("Usernam = ?", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // 將相關語法與參數傳入給 SQLX 的函式並執行。
@@ -89,7 +89,7 @@ rows, err := db.Query(query, params...)
 db, err := gorm.Open(mysql.Open("root:password@tcp(localhost:3306)/db"), &gorm.Config{})
 
 // 透過 Rushia 建置語法。
-q := rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Select()
+q := rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Select()
 query, params := rushia.Build(q)
 
 // 將相關語法與參數傳入給 Gorm 的函式並執行。
@@ -258,12 +258,24 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 // 等效於：SELECT * from Users LIMIT 10 OFFSET 20
 ```
 
+### 分頁
+
+`Paginate` 是一個較親近於人類的友善好函式，其用法為 `頁數, 單筆數量`。例如：`1, 20` 會取得從 `0` 開始後面的 20 筆資料，而 `2, 20` 則會從 `21` 開始後面的 20 筆資料。
+
+```go
+rushia.NewQuery("Users").Paginate(1, 20).Select()
+// 等效於：SELECT * from Users LIMIT 0, 20
+
+rushia.NewQuery("Users").Paginate(2, 20).Select()
+// 等效於：SELECT * from Users LIMIT 20, 20
+```
+
 ### 更新
 
 更新一筆資料在 Rushia 中極為簡單，你只需要指定表格名稱還有資料即可。
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Update(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Update(rushia.H{
 	"Username": "Karisu",
 	"Password": "123456",
 })
@@ -275,7 +287,7 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Update(rushia
 當你希望某些欄位在零值的時候不要進行更新，那麼你就可以使用 `Patch` 來做片段更新（也叫小修補）。
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Patch(rushia.H{
 	"Age": 0,
 	"Username": "",
 	"Password": "123456",
@@ -288,7 +300,7 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Patch(rushia.
 排除的資料型態或欄位會在零值時一樣被更新到資料庫中。
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Exclude("Username", reflect.Int).Patch(rushia.H{
 	"Age":      0,
 	"Username": "",
 	"Password": "123456",
@@ -301,7 +313,7 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exclude("User
 刪除一筆資料再簡單不過了。
 
 ```go
-rushia.NewQuery("Users").WhereValue("ID", "=", 1).Delete()
+rushia.NewQuery("Users").Where("ID = ?", 1).Delete()
 // 等效於：DELETE FROM Users WHERE ID = ?
 ```
 
@@ -363,7 +375,7 @@ rushia.NewQuery("Users").UnionAll(locationQuery).Select()
 透過 `Exists` 來執行一個 `SELECT EXISTS`。
 
 ```go
-rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
+rushia.NewQuery("Users").Where("Username = ?", "YamiOdymel").Exists()
 // 等效於：SELECT EXISTS(SELECT * FROM Users WHERE Username = ?)
 ```
 
@@ -372,10 +384,10 @@ rushia.NewQuery("Users").WhereValue("Username", "=", "YamiOdymel").Exists()
 `As` 能夠替目前的查詢語句賦予表格別名，通常會應用在子查詢。若是在表格加入（JOIN）或是一般場景，則可以使用 `NewAlias`。
 
 ```go
-rushia.NewQuery(NewQuery("Users").Select()).As("Result").WhereValue("Username", "=", "YamiOdymel").Select())
+rushia.NewQuery(NewQuery("Users").Select()).As("Result").Where("Username = ?", "YamiOdymel").Select())
 // 等效於：SELECT * FROM (SELECT * FROM Users) AS Result WHERE Username = ?
 
-rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).WhereValue("relations.ID", "=", 5).Select()
+rushia.NewQuery(rushia.NewAlias("UserFriendRelationships", "relations")).Where("relations.ID = ?", 5).Select()
 // 等效於： SELECT * FROM UserFriendRelationships AS relations relations.WHERE ID = ?
 ```
 
@@ -395,41 +407,39 @@ q := rushia.NewRawQuery("SELECT * FROM Users WHERE ID >= ?", 10)
 
 透過 Rushia 宣告 `WHERE` 或 `HAVING` 條件也能夠很輕鬆。這裡是實際應用最常派上用場的條件函式：
 
-| SQL 語法                                           | 別名函式                                                                       |
-| -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `Column = ?`<br>`Column > ?`                       | `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` |
-| `Column = Column`                                  | `.WhereColumn("Column", "=", "Column")`                                        |
-| `Column IN ?`<br>`Column NOT IN ?`                 | `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  |
-| `Column BETWEEN ?, ?`<br>`Column NOT BETWEEN ?, ?` | `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        |
-| `Column IS NULL`<br>`Column IS NOT NULL`           | `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        |
-| `Column Exists Query`<br>`Column NOT EXISTS Query` | `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    |
-| `Column LIKE ?`<br>`Column NOT LIKE ?`             | `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          |
-| `(Column = Column OR Column = ?)`                  | `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        |
-
-別名函式的底層其實都是呼叫一個萬用的 `Where` 函式。
-
-| 別名函式                                                                       | 相等於                                                                                 |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `.WhereValue("Column", "=", "Value")`<br>`.WhereValue("Column", ">", "Value")` | `.Where("Column", "Value")`<br>`.Where("Column", ">", "Value")`                        |
-| `.WhereColumn("Column", "=", "Column")`                                        | `.Where("Column = Column")`                                                            |
-| `.WhereIn("Column", "A", "B", "C")`<br>`.WhereNotIn("Column", "A", "B", "C")`  | `.Where("Column", "IN", "A", "B", "C")`<br>`.Where("Column", "NOT IN", "A", "B", "C")` |
-| `.WhereBetween("Column", 1, 20)`<br>`.WhereNotBetween("Column", 1, 20)`        | `.Where("Column", "BETWEEN", 1, 20)`<br>`.Where("Column", "NOT BETWEEN", 1, 20)`       |
-| `.WhereIsNull("Column")`<br>`.WhereIsNotNull("Column")`                        | `.Where("Column", "IS", nil)`<br>`.Where("Column", "IS NOT", nul)`                     |
-| `.WhereExists("Column", subQuery)`<br>`.WhereNotExists("Column", subQuery)`    | `.Where("EXISTS", subQuery)`<br>`.Where("NOT EXISTS", subQuery)`                       |
-| `.WhereLike("Column", "Value")`<br>`.WhereNotLike("Column", "Value")`          | `.Where("Column", "LIKE", "Value")`<br>`.Where("Column", "NOT LIKE", "Value")`         |
-| `.WhereRaw("(Column = Column OR Column = ?)", "Value")`                        | `.Where("(Column = Column OR Column = ?)", "Value")`                                   |
+| SQL 語法                                                 | 使用方式                                                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Column = ?`<br>`Column > ?`                             | `.Where("Column = ?", "Value")`<br>`.Where("Column > ?", "Value")`                         |
+| `Column = Column`                                        | `.Where("Column = Column")`                                                                |
+| `Column IN (?, ?)`<br>`Column NOT IN (?, ?)`             | `.Where("Column IN (?, ?)", "A", "B")`<br>`.Where("Column NOT IN (?, ?)", "A", "B")`       |
+| `Column IN (?, ?)`                                       | `.Where("Column IN ?", []interface{}{"A", "B"})`                                           |
+| `Column BETWEEN ? AND ?`<br>`Column NOT BETWEEN ? AND ?` | `.Where("Column BETWEEN ? AND ?", 1, 20)`<br>`.Where("Column NOT BETWEEN ? AND ?", 1, 20)` |
+| `Column IS NULL`<br>`Column IS NOT NULL`                 | `.Where("Column IS NULL")`<br>`.Where("Column IS NOT NULL")`                               |
+| `Column EXISTS Query`<br>`Column NOT EXISTS Query`       | `.Where("Column EXISTS ?", subQuery)`<br>`.Where("Column NOT EXISTS ?", subQuery)`         |
+| `Column LIKE ?`<br>`Column NOT LIKE ?`                   | `.Where("Column LIKE ?", "Value")`<br>`.Where("Column NOT LIKE ?", "Value")`               |
+| `(Column = Column OR Column = ?)`                        | `.Where("(Column = Column OR Column = ?)", "Value")`                                       |
 
 這些函式總共有幾種變形，分別適用於 `Where`、`OrWhere`、`Having`、`OrHaving`、`JoinWhere`、`OrJoinWhere`。
 
 ```go
-rushia.NewQuery("Users").WhereValue("ID", "=", 1).WhereValue("Username", "=", "admin").Select()
+rushia.NewQuery("Users").Where("ID = ?", 1).Where("Username = ?", "admin").Select()
 // 等效於：SELECT * FROM Users WHERE ID = ? AND Username = ?
 
-rushia.NewQuery("Users").HavingValue("ID", "=", 1).HavingValue("Username", "=", "admin").Select()
+rushia.NewQuery("Users").Having("ID = ?", 1).Having("Username = ?", "admin").Select()
 // 等效於：SELECT * FROM Users HAVING ID = ? AND Username = ?
 
-rushia.NewQuery("Users").WhereColumn("ID", "!=", "CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").Select()
+rushia.NewQuery("Users").Where("ID != CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // 等效於：SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
+```
+
+### 脫逸值
+
+與 [mysqljs/mysql](https://github.com/mysqljs/mysql) 套件中的 `??` 雙問號用法相同，你可以透過 `??` 產生出 ``` 來脫逸字元。這對於欄位名稱很有用。
+
+```go
+var ColumnUserID = "ID"
+rushia.NewQuery("Users").Where("?? = ?", ColumnUserID, 3).Select()
+// 等效於：SELECT * FROM Users WHERE `ID` = ?
 ```
 
 ### 排序
@@ -477,7 +487,7 @@ rushia.
 rushia.
 	NewQuery("Products").
 	LeftJoin("Users").
-	JoinWhereColumn("Products.TenantID", "=", "Users.TenantID")
+	JoinWhere("Products.TenantID = Users.TenantID")
 	Select("Users.Name", "Products.ProductName")
 // 等效於：SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID)
 ```
@@ -490,7 +500,7 @@ rushia.
 rushia.
 	NewQuery("Products").
 	LeftJoin("Users", "Products.TenantID = Users.TenantID").
-	OrJoinWhereValue("Users.TenantID", "=", 5).
+	OrJoinWhere("Users.TenantID = ?", 5).
 	Select("Users.Name", "Products.ProductName")
 // 等效於：SELECT Users.Name, Products.ProductName FROM Products AS Products LEFT JOIN Users AS Users ON (Products.TenantID = Users.TenantID OR Users.TenantID = ?)
 ```
@@ -511,7 +521,7 @@ rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
 插入新資料時也可以使用子指令，但必須確保子指令只會回傳一個欄位與單行資料。
 
 ```go
-subQuery := rushia.NewQuery("Users").WhereValue("ID", "=", 6).SelectOne("Name")
+subQuery := rushia.NewQuery("Users").Where("ID = ?", 6).SelectOne("Name")
 
 rushia.NewQuery("Products").Insert(rushia.H{
 	"ProductName": "測試商品",
@@ -526,7 +536,7 @@ rushia.NewQuery("Products").Insert(rushia.H{
 就算是加入表格的時候也可以用上子指令，但你需要使用 `As` 為子指令建立別名。
 
 ```go
-subQuery := rushia.NewQuery("Users").As("Users").WhereValue("Active", "=", 1).Select()
+subQuery := rushia.NewQuery("Users").As("Users").Where("Active = ?", 1).Select()
 
 rushia.
 	NewQuery("Products").
@@ -566,10 +576,10 @@ rushia.NewQuery("Users").SetQueryOption("LOW_PRIORITY", "IGNORE").Insert(data)
 
 ```go
 jobHistories := rushia.NewQuery("JobHistories").
-	WhereBetween("DepartmentID", 50, 100).
+	Where("DepartmentID BETWEEN ? AND ?", 50, 100).
 	Select("JobID")
 jobs := rushia.NewQuery("Jobs").
-	WhereIn("JobID", jobHistories).
+	Where("JobID IN ?", jobHistories).
 	GroupBy("JobID").
 	Select("JobID", "AVG(MinSalary) AS MyAVG")
 maxAverage := rushia.NewQuery(jobs).
@@ -577,7 +587,7 @@ maxAverage := rushia.NewQuery(jobs).
 	Select("MAX(MyAVG)")
 employees := rushia.NewQuery("Employees").
 	GroupBy("JobID").
-	HavingValue("AVG(Salary)", "<", maxAverage).
+	Having("AVG(Salary) < ?", maxAverage).
 	Select("JobID", "AVG(Salary)")
 
 // 等效於：
@@ -597,18 +607,18 @@ employees := rushia.NewQuery("Employees").
 // GROUP  BY job_id;
 
 agents := rushia.NewQuery("Agents").
-	WhereValue("Commission", "<", 0.12).
+	Where("Commission < ?", 0.12).
 	Select()
 customers := rushia.NewQuery("Customers").
-	WhereValue("Grade", "=", 3).
-	WhereValue("CustomerCountry", "<>", "India").
-	WhereValue("OpeningAmount", "<", 7000).
-	WhereExists(agents).
+	Where("Grade = ?", 3).
+	Where("CustomerCountry <> ?", "India").
+	Where("OpeningAmount < ?", 7000).
+	Where("EXISTS ?", agents).
 	Select("OutstandingAmount")
 orders := rushia.NewQuery("Orders").
-	WhereValue("OrderAmount", ">", 2000).
-	WhereValue("OrderDate", "<", "01-SEP-08").
-	WhereValue("AdvanceAmount", "<", rushia.NewExpr("ANY (?)", customers)).
+	Where("OrderAmount > ?", 2000).
+	Where("OrderDate < ?", "01-SEP-08").
+	Where("AdvanceAmount < ?", rushia.NewExpr("ANY (?)", customers)).
 	Select("OrderNum", "OrderDate", "OrderAmount", "AdvanceAmount")
 
 // 等效於：
