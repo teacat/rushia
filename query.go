@@ -125,6 +125,17 @@ func (q *Query) Limit(from int, count ...int) *Query {
 	return q
 }
 
+// Paginate is a human-friendly `LIMIT` option.
+func (q *Query) Paginate(page int, limit int) *Query {
+	var from int
+	if page == 1 {
+		from = 0
+	} else {
+		from = limit * (page - 1)
+	}
+	return q.Limit(from, limit)
+}
+
 // As creates an alias for current query.
 func (q *Query) As(alias string) *Query {
 	q.alias = alias
@@ -138,9 +149,16 @@ func (q *Query) Offset(count int, offset int) *Query {
 	return q
 }
 
+func (q *Query) ClearLimit() *Query {
+	q.offset = offset{}
+	q.limit = limit{}
+	return q
+}
+
 // Having creates a `HAVING` condition.
-func (q *Query) Having(args ...interface{}) *Query {
+func (q *Query) Having(query string, args ...interface{}) *Query {
 	q.havings = append(q.havings, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeAnd,
 	})
@@ -148,8 +166,9 @@ func (q *Query) Having(args ...interface{}) *Query {
 }
 
 // OrHaving creates a `HAVING OR` condition.
-func (q *Query) OrHaving(args ...interface{}) *Query {
+func (q *Query) OrHaving(query string, args ...interface{}) *Query {
 	q.havings = append(q.havings, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeOr,
 	})
@@ -157,8 +176,9 @@ func (q *Query) OrHaving(args ...interface{}) *Query {
 }
 
 // Where creates a `WHERE` condition.
-func (q *Query) Where(args ...interface{}) *Query {
+func (q *Query) Where(query string, args ...interface{}) *Query {
 	q.wheres = append(q.wheres, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeAnd,
 	})
@@ -166,8 +186,9 @@ func (q *Query) Where(args ...interface{}) *Query {
 }
 
 // OrWhere creates a `WHERE OR` condition.
-func (q *Query) OrWhere(args ...interface{}) *Query {
+func (q *Query) OrWhere(query string, args ...interface{}) *Query {
 	q.wheres = append(q.wheres, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeOr,
 	})
@@ -175,8 +196,9 @@ func (q *Query) OrWhere(args ...interface{}) *Query {
 }
 
 // JoinWhere creates the `AND` joining condition for latest table join.
-func (q *Query) JoinWhere(args ...interface{}) *Query {
+func (q *Query) JoinWhere(query string, args ...interface{}) *Query {
 	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeAnd,
 	})
@@ -184,8 +206,9 @@ func (q *Query) JoinWhere(args ...interface{}) *Query {
 }
 
 // OrJoinWhere creates the `OR` joining condition for latest table join.
-func (q *Query) OrJoinWhere(args ...interface{}) *Query {
+func (q *Query) OrJoinWhere(query string, args ...interface{}) *Query {
 	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
+		query:     query,
 		args:      args,
 		connector: connectorTypeOr,
 	})
