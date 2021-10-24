@@ -241,7 +241,7 @@ rushia.NewQuery("Users").Insert(rushia.H{
 
 ### Limit
 
-`Limit` limits the rows to process (Select, Update, Delete). Only the first `10` rows will be affected if it was set to `10`.
+`Limit` limits the rows to process (Select, Update, Delete). Only the first `10` rows will be affected if it was set to `10`. If `10, 20` was specified, it will skip the first 10 results and process the next 20 results.
 
 ```go
 rushia.NewQuery("Users").Limit(10).Update(data)
@@ -253,7 +253,7 @@ rushia.NewQuery("Users").Limit(10, 20).Select(data)
 
 ### Offset
 
-The usage of `Offset` is a bit like pagination, the arguments work as `count, last_index`. If `Offset(10, 20)` was called, the result `21, 22... 30` will be fetched.
+The usage of `Offset` works a bit like `Limit` but opposite arguments. If `10, 20` was specified, it skips the first 20 results and deal with the rest 10 results.
 
 ```go
 rushia.NewQuery("Users").Offset(10, 20).Select()
@@ -262,14 +262,14 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 
 ### Paginate
 
-`Paginate` 是一個較親近於人類的友善好函式，其用法為 `頁數, 單筆數量`。例如：`1, 20` 會取得從 `0` 開始後面的 20 筆資料，而 `2, 20` 則會從 `21` 開始後面的 20 筆資料。
+`Paginate` is human-friendly, the argument works as `page, count`. With `1, 20` it fetches the first 20 results, with `2, 20` it fetches the other 20 results from page 2 (basically from 21 to 40).
 
 ```go
 rushia.NewQuery("Users").Paginate(1, 20).Select()
-// 等效於：SELECT * from Users LIMIT 0, 20
+// Equals: SELECT * from Users LIMIT 0, 20
 
 rushia.NewQuery("Users").Paginate(2, 20).Select()
-// 等效於：SELECT * from Users LIMIT 20, 20
+// Equals: SELECT * from Users LIMIT 20, 20
 ```
 
 ### Update
@@ -436,7 +436,7 @@ rushia.NewQuery("Users").WhereC("ID != CompanyID").Where("DATE(CreatedAt) = DATE
 
 ### Escaped Values
 
-The same usage as `??` double question marks in [mysqljs/mysql](https://github.com/mysqljs/mysql) package, it's possible to escape the values with backticks ``` by using`??`. It's useful for column names.
+The same usage as `??` double question marks in [mysqljs/mysql](https://github.com/mysqljs/mysql) package, it's possible to escape the values with backticks (\`) by using `??`. It's useful for column names.
 
 ```go
 var ColumnUserID = "ID"

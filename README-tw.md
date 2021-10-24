@@ -239,7 +239,7 @@ rushia.NewQuery("Users").Insert(rushia.H{
 
 ### 筆數限制
 
-`Limit` 能夠限制 SQL 執行的筆數，如果是 10，那就表示只處理最前面 10 筆資料而非全部（例如：選擇、更新、移除）。
+`Limit` 能夠限制 SQL 執行的筆數，如果指定 `10`，那就表示只處理最前面 10 筆資料而非全部（例如：選擇、更新、移除）。如果指定 `10, 20`，那就是忽略前面 10 筆，並處理之後的 20 筆資料（`11, 12... 30`）。
 
 ```go
 rushia.NewQuery("Users").Limit(10).Update(data)
@@ -251,7 +251,7 @@ rushia.NewQuery("Users").Limit(10, 20).Select(data)
 
 ### 筆數偏移
 
-透過 `Offset` 能夠以 `筆數, 上次索引編號` 的方式取得資料，例如：`10, 20` 則會從 `21` 開始取得 10 筆資料（`21, 22, 23...`）。
+透過 `Offset` 能夠以偏移的方式取得資料，這類似 `Limit` 但參數是反過來的。例如：`10, 20` 則會從 `21` 開始取得 10 筆資料（`21, 22... 30`）。
 
 ```go
 rushia.NewQuery("Users").Offset(10, 20).Select()
@@ -260,7 +260,7 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 
 ### 分頁
 
-`Paginate` 是一個較親近於人類的友善好函式，其用法為 `頁數, 單筆數量`。例如：`1, 20` 會取得從 `0` 開始後面的 20 筆資料，而 `2, 20` 則會從 `21` 開始後面的 20 筆資料。
+`Paginate` 是一個較親近於人類的友善好函式，其參數為：`頁數, 單頁筆數`。例如：`1, 20` 會取得首 20 筆資料，而 `2, 20` 則會取得第二頁的 20 筆資料（基本上為 21 至 40）。
 
 ```go
 rushia.NewQuery("Users").Paginate(1, 20).Select()
@@ -434,7 +434,7 @@ rushia.NewQuery("Users").Where("ID != CompanyID").WhereRaw("DATE(CreatedAt) = DA
 
 ### 脫逸值
 
-與 [mysqljs/mysql](https://github.com/mysqljs/mysql) 套件中的 `??` 雙問號用法相同，你可以透過 `??` 產生出 ``` 來脫逸字元。這對於欄位名稱很有用。
+與 [mysqljs/mysql](https://github.com/mysqljs/mysql) 套件中的 `??` 雙問號用法相同，你可以透過 `??` 產生出 (\`) 來脫逸字元。這對於欄位名稱很有用。
 
 ```go
 var ColumnUserID = "ID"
@@ -647,3 +647,7 @@ orders := rushia.NewQuery("Orders").
 -   [jmoiron/sqlx](https://github.com/jmoiron/sqlx)
 -   [russross/meddler](https://github.com/russross/meddler)
 -   [jinzhu/gorm](https://github.com/jinzhu/gorm)
+-   [doug-martin/goqu](https://github.com/doug-martin/goqu)
+-   [gocraft/dbr](https://github.com/gocraft/dbr)
+-   [go-ozzo/ozzo-dbx](https://github.com/go-ozzo/ozzo-dbx)
+-   [kyleconroy/sqlc](https://github.com/kyleconroy/sqlc)
