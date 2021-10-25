@@ -3,6 +3,7 @@ package rushia
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -311,12 +312,30 @@ func (q *Query) buildConditions(conditions []condition) string {
 		if !strings.Contains(condition.query, "?") {
 			panic("rushia: incorrect where condition usage")
 		}
-		//
-		escapes := strings.Count(condition.query, "??")
-		for i := 0; i < escapes; i++ {
-			condition.query = replaceNth(condition.query, "??", fmt.Sprintf("`%s`", condition.args[i]), i+1)
-			condition.args = removeIndex(condition.args, i)
+		if strings.Contains(condition.query, "??") {
+			r := regexp.MustCompile(`(?m)(\?\?|\?)`)
+			found := r.FindAllString(condition.query, -1)
+			count := strings.Count(condition.query, "??")
+			for i := len(found) - 1; i >= 0; i-- {
+				if found[i] != "??" {
+					continue
+				}
+
+				fmt.Println("query:", condition.query)
+				fmt.Println("total:", count, "argIndex:", i, "strIndex:", count, "value:", condition.args[i])
+
+				condition.query = replaceNth(condition.query, "??", fmt.Sprintf("`%s`", condition.args[i].(string)), count)
+
+				fmt.Println("done:", condition.query)
+
+				count--
+
+				condition.args = removeIndex(condition.args, i)
+
+				fmt.Println("")
+			}
 		}
+
 		//
 		for argIndex, arg := range condition.args {
 			//
@@ -330,6 +349,9 @@ func (q *Query) buildConditions(conditions []condition) string {
 			if reflect.TypeOf(arg).Kind() == reflect.Slice {
 				var params []interface{}
 				s := reflect.ValueOf(arg)
+				if s.Len() == 0 {
+					panic("rushia: no len slice was passed as arg, stop it before sending to rushia")
+				}
 				for i := 0; i < s.Len(); i++ {
 					params = append(params, s.Index(i).Interface())
 				}
@@ -341,6 +363,24 @@ func (q *Query) buildConditions(conditions []condition) string {
 		qu += fmt.Sprintf("%s ", condition.query)
 	}
 	return q.trim(qu)
+}
+
+func (q *Query) processEscaped(qu string, args ...interface{}) (string, []interface{}) {
+	if !strings.Contains(qu, "??") {
+		return qu, args
+	}
+	r := regexp.MustCompile(`(?m)(\?\?|\?)`)
+	found := r.FindAllString(qu, -1)
+	count := strings.Count(qu, "??")
+	for i := len(found) - 1; i >= 0; i-- {
+		if found[i] != "??" {
+			continue
+		}
+		qu = replaceNth(qu, "??", fmt.Sprintf("`%s`", args[i].(string)), count)
+		count--
+		args = removeIndex(args, i)
+	}
+	return qu, args
 }
 
 func (q *Query) buildWhere() string {

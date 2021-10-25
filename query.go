@@ -9,6 +9,36 @@ import (
 func (q *Query) Copy() *Query {
 	a := *q
 	b := a
+	//
+	b.wheres = make([]condition, len(a.wheres))
+	copy(b.wheres, a.wheres)
+	//
+	b.havings = make([]condition, len(a.havings))
+	copy(b.havings, a.havings)
+	//
+	b.queryOptions = make([]string, len(a.queryOptions))
+	copy(b.queryOptions, a.queryOptions)
+	//
+	b.unions = make([]union, len(a.unions))
+	copy(b.unions, a.unions)
+	//
+	b.selects = make([]interface{}, len(a.selects))
+	copy(b.selects, a.selects)
+	//
+	b.joins = make([]join, len(a.joins))
+	copy(b.joins, a.joins)
+	//
+	b.orders = make([]order, len(a.orders))
+	copy(b.orders, a.orders)
+	//
+	b.groups = make([]string, len(a.groups))
+	copy(b.groups, a.groups)
+	//
+	b.params = make([]interface{}, len(a.params))
+	copy(b.params, a.params)
+	//
+	b.omits = make([]string, len(a.omits))
+	copy(b.omits, a.omits)
 	return &b
 }
 
@@ -157,6 +187,7 @@ func (q *Query) ClearLimit() *Query {
 
 // Having creates a `HAVING` condition.
 func (q *Query) Having(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.havings = append(q.havings, condition{
 		query:     query,
 		args:      args,
@@ -167,6 +198,7 @@ func (q *Query) Having(query string, args ...interface{}) *Query {
 
 // OrHaving creates a `HAVING OR` condition.
 func (q *Query) OrHaving(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.havings = append(q.havings, condition{
 		query:     query,
 		args:      args,
@@ -177,6 +209,7 @@ func (q *Query) OrHaving(query string, args ...interface{}) *Query {
 
 // Where creates a `WHERE` condition.
 func (q *Query) Where(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.wheres = append(q.wheres, condition{
 		query:     query,
 		args:      args,
@@ -187,6 +220,7 @@ func (q *Query) Where(query string, args ...interface{}) *Query {
 
 // OrWhere creates a `WHERE OR` condition.
 func (q *Query) OrWhere(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.wheres = append(q.wheres, condition{
 		query:     query,
 		args:      args,
@@ -197,6 +231,7 @@ func (q *Query) OrWhere(query string, args ...interface{}) *Query {
 
 // JoinWhere creates the `AND` joining condition for latest table join.
 func (q *Query) JoinWhere(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
 		query:     query,
 		args:      args,
@@ -207,6 +242,7 @@ func (q *Query) JoinWhere(query string, args ...interface{}) *Query {
 
 // OrJoinWhere creates the `OR` joining condition for latest table join.
 func (q *Query) OrJoinWhere(query string, args ...interface{}) *Query {
+	query, args = q.processEscaped(query, args...)
 	q.joins[len(q.joins)-1].conditions = append(q.joins[len(q.joins)-1].conditions, condition{
 		query:     query,
 		args:      args,

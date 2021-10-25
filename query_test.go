@@ -1006,6 +1006,23 @@ func TestSubQueryRawQueryReplacement(t *testing.T) {
 }
 
 //=======================================================
+// Copy
+//=======================================================
+
+func TestCopy(t *testing.T) {
+	assert := assert.New(t)
+	q := NewQuery("Users").Where("?? = ? AND ?? = ?", "user_id", 30, "nickname", "yamiodymel").Where("?? = ?", "username", "hello").Select()
+
+	query, params := Build(q.Copy().Limit(100))
+	assertEqual(assert, "SELECT * FROM Users WHERE `user_id` = ? AND `nickname` = ? AND `username` = ? LIMIT 100", query)
+	assertParams(assert, []interface{}{30, "yamiodymel", "hello"}, params)
+
+	query, params = Build(q)
+	assertEqual(assert, "SELECT * FROM Users WHERE `user_id` = ? AND `nickname` = ? AND `username` = ?", query)
+	assertParams(assert, []interface{}{30, "yamiodymel", "hello"}, params)
+}
+
+//=======================================================
 // Others
 //=======================================================
 
