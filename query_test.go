@@ -707,6 +707,10 @@ func TestWhereIn(t *testing.T) {
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (?, ?, ?, ?, ?)", query)
 	assertParams(assert, []interface{}{1, 5, 27, -1, "d"}, params)
 
+	query, params = Build(NewQuery("Users").Where("ID IN ?", []int{1, 5, 27, -1}).Select())
+	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (?, ?, ?, ?)", query)
+	assertParams(assert, []interface{}{1, 5, 27, -1}, params)
+
 	query, params = Build(NewQuery("Users").Where("ID IN (?)", 1).Select())
 	assertEqual(assert, "SELECT * FROM Users WHERE ID IN (?)", query)
 	assertParams(assert, []interface{}{1}, params)
