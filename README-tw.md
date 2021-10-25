@@ -428,8 +428,19 @@ rushia.NewQuery("Users").Where("ID = ?", 1).Where("Username = ?", "admin").Selec
 rushia.NewQuery("Users").Having("ID = ?", 1).Having("Username = ?", "admin").Select()
 // 等效於：SELECT * FROM Users HAVING ID = ? AND Username = ?
 
-rushia.NewQuery("Users").Where("ID != CompanyID").WhereRaw("DATE(CreatedAt) = DATE(LastLogin)").Select()
+rushia.NewQuery("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // 等效於：SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
+```
+
+### 預置聲明展開
+
+透過預置聲明（[Prepared Statement](https://en.wikipedia.org/wiki/Prepared_statement)）可以避免 SQL 指令遭受注入攻擊。
+
+在 Rushia 中有個額外的功能，傳入一個 Slice（無論是：`[]interface{}` 或 `[]int`…等）給其中的單個 `?` 會自動展開成為預置聲明。
+
+```go
+rushia.NewQuery("Users").Where("ID IN ?", []interface{}{"A", "B", "C"}).Select()
+// 等效於：SELECT * FROM Users WHERE ID IN (?, ?, ?)
 ```
 
 ### 脫逸值
@@ -512,7 +523,7 @@ Rushia 支援複雜的子指令，將一個指令語法帶入當成值使用就�
 ```go
 subQuery := rushia.NewQuery("VIPUsers").Select("UserID")
 
-rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
+rushia.NewQuery("Users").Where("ID IN ?", subQuery).Select()
 // 等效於：SELECT * FROM Users WHERE ID IN (SELECT UserID FROM VIPUsers)
 ```
 

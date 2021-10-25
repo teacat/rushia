@@ -430,8 +430,19 @@ rushia.NewQuery("Users").Where("ID = ?", 1).Where("Username = ?", "admin").Selec
 rushia.NewQuery("Users").Having("ID = ?", 1).Having("Username = ?", "admin").Select()
 // Equals: SELECT * FROM Users HAVING ID = ? AND Username = ?
 
-rushia.NewQuery("Users").WhereC("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
+rushia.NewQuery("Users").Where("ID != CompanyID").Where("DATE(CreatedAt) = DATE(LastLogin)").Select()
 // Equals: SELECT * FROM Users WHERE ID != CompanyID AND DATE(CreatedAt) = DATE(LastLogin)
+```
+
+### Expanded Prepared Statment
+
+You can easily avoid the 99.9% SQL Injection by using [Prepared Statement](https://en.wikipedia.org/wiki/Prepared_statement).
+
+In Rushia, it's possible to pass a slice (e.g: `[]interface{}`, `[]int`...etc) into a single `?` parepared statement, and it will be automatically expanded to multiple prepared statements.
+
+```go
+rushia.NewQuery("Users").Where("ID IN ?", []interface{}{"A", "B", "C"}).Select()
+// Equals: SELECT * FROM Users WHERE ID IN (?, ?, ?)
 ```
 
 ### Escaped Values
@@ -520,7 +531,7 @@ Rushia supports nested query which is called Sub Query. Use a query as a value t
 ```go
 subQuery := rushia.NewQuery("VIPUsers").Select("UserID")
 
-rushia.NewQuery("Users").WhereIn("ID", subQuery).Select()
+rushia.NewQuery("Users").Where("ID IN ?", subQuery).Select()
 // Equals: SELECT * FROM Users WHERE ID IN (SELECT UserID FROM VIPUsers)
 ```
 
