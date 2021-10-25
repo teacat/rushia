@@ -1,4 +1,4 @@
-module github.com/teacat/rushia/v2
+module github.com/teacat/rushia/v3
 
 go 1.15
 

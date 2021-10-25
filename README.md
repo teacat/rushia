@@ -1,4 +1,4 @@
-# Rushia [台灣正體](./README-tw.md) [![GoDoc](https://godoc.org/github.com/teacat/rushia?status.svg)](https://godoc.org/github.com/teacat/rushia) [![Coverage Status](https://coveralls.io/repos/github/teacat/rushia/badge.svg?branch=master)](https://coveralls.io/github/teacat/rushia?branch=master) [![Build Status](https://travis-ci.org/teacat/rushia.svg?branch=master)](https://travis-ci.org/teacat/rushia) [![Go Report Card](https://goreportcard.com/badge/github.com/teacat/rushia)](https://goreportcard.com/report/github.com/teacat/rushia)
+# Rushia [台灣正體](./README-tw.md) [![GoDoc](https://godoc.org/github.com/teacat/rushia/v3?status.svg)](https://godoc.org/github.com/teacat/rushia/v3) [![Coverage Status](https://coveralls.io/repos/github/teacat/rushia/badge.svg?branch=master)](https://coveralls.io/github/teacat/rushia?branch=master) [![Build Status](https://travis-ci.org/teacat/rushia.svg?branch=master)](https://travis-ci.org/teacat/rushia) [![Go Report Card](https://goreportcard.com/badge/github.com/teacat/rushia)](https://goreportcard.com/report/github.com/teacat/rushia)
 
 A MySQL query builder that's way- better than most the [ORM](https://zh.wikipedia.org/wiki/%E5%AF%B9%E8%B1%A1%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84) that written in [Golang](https://golang.org/). Flexible and no struct tags needed. The original idea was from [PHP-MySQLi-Database-Class](https://github.com/joshcam/PHP-MySQLi-Database-Class) and [Laravel Query Builder](https://laravel.com/docs/8.x/queries) with extra functions.
 
@@ -241,7 +241,7 @@ rushia.NewQuery("Users").Insert(rushia.H{
 
 ### Limit
 
-`Limit` limits the rows to process (Select, Update, Delete). Only the first `10` rows will be affected if it was set to `10`.
+`Limit` limits the rows to process (Select, Update, Delete). Only the first `10` rows will be affected if it was set to `10`. If `10, 20` was specified, it will skip the first 10 results and process the next 20 results.
 
 ```go
 rushia.NewQuery("Users").Limit(10).Update(data)
@@ -253,7 +253,7 @@ rushia.NewQuery("Users").Limit(10, 20).Select(data)
 
 ### Offset
 
-The usage of `Offset` is a bit like pagination, the arguments work as `count, last_index`. If `Offset(10, 20)` was called, the result `21, 22... 30` will be fetched.
+The usage of `Offset` works a bit like `Limit` but opposite arguments. If `10, 20` was specified, it skips the first 20 results and deal with the rest 10 results.
 
 ```go
 rushia.NewQuery("Users").Offset(10, 20).Select()
@@ -262,14 +262,14 @@ rushia.NewQuery("Users").Offset(10, 20).Select()
 
 ### Paginate
 
-`Paginate` 是一個較親近於人類的友善好函式，其用法為 `頁數, 單筆數量`。例如：`1, 20` 會取得從 `0` 開始後面的 20 筆資料，而 `2, 20` 則會從 `21` 開始後面的 20 筆資料。
+`Paginate` is human-friendly, the argument works as `page, count`. With `1, 20` it fetches the first 20 results, with `2, 20` it fetches the other 20 results from page 2 (basically from 21 to 40).
 
 ```go
 rushia.NewQuery("Users").Paginate(1, 20).Select()
-// 等效於：SELECT * from Users LIMIT 0, 20
+// Equals: SELECT * from Users LIMIT 0, 20
 
 rushia.NewQuery("Users").Paginate(2, 20).Select()
-// 等效於：SELECT * from Users LIMIT 20, 20
+// Equals: SELECT * from Users LIMIT 20, 20
 ```
 
 ### Update
@@ -447,7 +447,7 @@ rushia.NewQuery("Users").Where("ID IN ?", []interface{}{"A", "B", "C"}).Select()
 
 ### Escaped Values
 
-The same usage as `??` double question marks in [mysqljs/mysql](https://github.com/mysqljs/mysql) package, it's possible to escape the values with backticks ``` by using`??`. It's useful for column names.
+The same usage as `??` double question marks in [mysqljs/mysql](https://github.com/mysqljs/mysql) package, it's possible to escape the values with backticks (\`) by using `??`. It's useful for column names.
 
 ```go
 var ColumnUserID = "ID"
