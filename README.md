@@ -24,7 +24,7 @@ This is a query builder without any database connection implmentation, fits for 
 Install the package via `go get` command.
 
 ```bash
-$ go get github.com/teacat/rushia/v2
+$ go get github.com/teacat/rushia/v3
 ```
 
 ## Usage

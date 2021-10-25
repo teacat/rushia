@@ -24,7 +24,7 @@
 打開終端機並且透過 `go get` 安裝此套件即可。
 
 ```bash
-$ go get github.com/teacat/rushia/v2
+$ go get github.com/teacat/rushia/v3
 ```
 
 ## 使用方式
