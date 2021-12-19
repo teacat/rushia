@@ -320,19 +320,9 @@ func (q *Query) buildConditions(conditions []condition) string {
 				if found[i] != "??" {
 					continue
 				}
-
-				fmt.Println("query:", condition.query)
-				fmt.Println("total:", count, "argIndex:", i, "strIndex:", count, "value:", condition.args[i])
-
 				condition.query = replaceNth(condition.query, "??", fmt.Sprintf("`%s`", condition.args[i].(string)), count)
-
-				fmt.Println("done:", condition.query)
-
 				count--
-
 				condition.args = removeIndex(condition.args, i)
-
-				fmt.Println("")
 			}
 		}
 
