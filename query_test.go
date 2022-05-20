@@ -904,6 +904,16 @@ func TestJoin(t *testing.T) {
 	assertParams(assert, []interface{}{6}, params)
 }
 
+func TestJoinAlias(t *testing.T) {
+	assert := assert.New(t)
+	query, params := Build(NewQuery(NewAlias("Products", "p")).
+		LeftJoin(NewAlias("Users", "u"), "p.TenantID = u.TenantID").
+		Where("u.ID = ?", 6).
+		Select("u.Name", "p.ProductName"))
+	assertEqual(assert, "SELECT u.Name, p.ProductName FROM Products AS p LEFT JOIN Users AS u ON (p.TenantID = u.TenantID) WHERE u.ID = ?", query)
+	assertParams(assert, []interface{}{6}, params)
+}
+
 func TestJoinWhere(t *testing.T) {
 	assert := assert.New(t)
 	query, params := Build(NewQuery("Products").
