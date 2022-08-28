@@ -326,17 +326,6 @@ func TestOnDuplicateInsert(t *testing.T) {
 }
 
 //=======================================================
-// Build
-//=======================================================
-
-func TestBuildNoType(t *testing.T) {
-	assert := assert.New(t)
-	assert.Panics(func() {
-		Build(NewQuery("Users"))
-	})
-}
-
-//=======================================================
 // Replace
 //=======================================================
 
@@ -795,9 +784,21 @@ func TestUnion(t *testing.T) {
 	query, _ := Build(NewQuery("Users").Union(tableQuery).Select())
 	assertEqual(assert, "SELECT * FROM Users UNION SELECT * FROM Locations", query)
 
+	query, _ = Build(NewQuery("Users").Union(tableQuery).OrderBy("Username DESC").Select())
+	assertEqual(assert, "SELECT * FROM Users UNION SELECT * FROM Locations ORDER BY Username DESC", query)
+
 	query, params := Build(NewQuery(NewQuery("Users").Union(tableQuery).Select()).Where("Username = ?", "YamiOdymel").Select())
-	assertEqual(assert, "SELECT * FROM (SELECT * FROM Users UNION SELECT * FROM Locations) WHERE Username = ?)", query)
+	assertEqual(assert, "SELECT * FROM (SELECT * FROM Users UNION SELECT * FROM Locations WHERE Username = ?)", query)
 	assertParams(assert, []interface{}{"YamiOdymel"}, params)
+}
+
+func TestUnionOnly(t *testing.T) {
+	assert := assert.New(t)
+	userQuery := NewQuery("Users").OrderBy("Username DESC").Select()
+	tableQuery := NewQuery("Locations").OrderBy("House DESC").Select()
+
+	query, _ := Build(NewQuery(userQuery).Union(tableQuery).OrderBy("Username DESC"))
+	assertEqual(assert, "(SELECT * FROM Users ORDER BY Username DESC) UNION (SELECT * FROM Locations ORDER BY House DESC) ORDER BY Username DESC", query)
 }
 
 func TestUnionAll(t *testing.T) {

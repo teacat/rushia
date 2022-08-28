@@ -1,15 +1,9 @@
 package rushia
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
-)
-
-var (
-	// ErrQueryTypeUnspecified
-	ErrQueryTypeUnspecified = errors.New("rushia: query type unspecified")
 )
 
 // Expr
@@ -212,6 +206,7 @@ func Build(q *Query) (query string, params []interface{}) {
 	}
 	query += q.padSpace(q.buildAs())
 	query += q.padSpace(q.buildDuplicate())
+	query += q.padSpace(q.buildUnion())
 	query += q.padSpace(q.buildJoin())
 	query += q.padSpace(q.buildWhere())
 	query += q.padSpace(q.buildHaving())
@@ -219,7 +214,6 @@ func Build(q *Query) (query string, params []interface{}) {
 	query += q.padSpace(q.buildGroupBy())
 	query += q.padSpace(q.buildLimit())
 	query += q.padSpace(q.buildOffset())
-	query += q.padSpace(q.buildUnion())
 	query += q.padSpace(q.buildAfterQueryOptions())
 	return q.trim(query), q.params
 }

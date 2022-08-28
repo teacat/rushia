@@ -129,7 +129,7 @@ func (q *Query) buildQuery() string {
 	case queryTypeDelete:
 		return q.buildDelete()
 	default:
-		panic(ErrQueryTypeUnspecified)
+		return q.buildNothing()
 	}
 }
 
@@ -197,6 +197,13 @@ func (q *Query) buildDelete() string {
 	return fmt.Sprintf("DELETE FROM %s", tableQuery)
 }
 
+func (q *Query) buildNothing() string {
+	tableQuery := q.bindParam(q.table, &bindOptions{
+		keepStringValue: true,
+	})
+	return tableQuery
+}
+
 func (q *Query) buildSelect() string {
 	beforeQuery := q.padSpace(q.trim(q.buildBeforeQueryOptions()))
 	selectQuery := "*"
@@ -254,7 +261,7 @@ func (q *Query) buildUnion() string {
 		if v.all {
 			unionQuery += fmt.Sprintf("UNION ALL %s", query)
 		} else {
-			unionQuery += fmt.Sprintf("UNION %s", query)
+			unionQuery += fmt.Sprintf("UNION (%s)", query)
 		}
 	}
 	return unionQuery
