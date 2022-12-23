@@ -787,6 +787,11 @@ func TestUnion(t *testing.T) {
 	query, _ = Build(NewQuery("Users").Union(tableQuery).OrderBy("Username DESC").Select())
 	assertEqual(assert, "SELECT * FROM Users UNION SELECT * FROM Locations ORDER BY Username DESC", query)
 
+	subQueryA := NewQuery("Friends").Where("UserID_1 = ?", 1).Select("UserID_2")
+	subQueryB := NewQuery("Friends").Where("UserID_2 = ?", 1).Select("UserID_1")
+	query, _ = Build(NewQuery("Users").Where("ID IN (?)", NewQuery(subQueryA).Union(subQueryB)).Select())
+	assertEqual(assert, "SELECT * FROM Users WHERE ID IN ((SELECT UserID_2 FROM Friends WHERE UserID_1 = ?) UNION (SELECT UserID_1 FROM Friends WHERE UserID_2 = ?))", query)
+
 	query, params := Build(NewQuery(NewQuery("Users").Union(tableQuery).Select()).Where("Username = ?", "YamiOdymel").Select())
 	assertEqual(assert, "SELECT * FROM (SELECT * FROM Users UNION SELECT * FROM Locations WHERE Username = ?)", query)
 	assertParams(assert, []interface{}{"YamiOdymel"}, params)
