@@ -39,6 +39,8 @@ func (q *Query) Copy() *Query {
 	//
 	b.omits = make([]string, len(a.omits))
 	copy(b.omits, a.omits)
+	//
+	b.db = a.db
 	return &b
 }
 

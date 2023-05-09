@@ -136,6 +136,7 @@ type Query struct {
 
 	typ      queryType
 	subQuery *Query
+	conf     *Config
 
 	table        interface{}
 	wheres       []condition
@@ -163,12 +164,15 @@ type Query struct {
 
 	omits   []string
 	exclude exclude
+
+	db DB
 }
 
 // NewQuery creates a Query based on a table name or a sub query.
 func NewQuery(table interface{}) *Query {
 	q := &Query{
 		table: table,
+		conf:  DefaultConfig(),
 	}
 	return q
 }
@@ -195,7 +199,7 @@ func NewExpr(query string, params ...interface{}) *Expr {
 
 // NewAlias creates an alias for a table.
 func NewAlias(table string, alias string) string {
-	return fmt.Sprintf("%s AS %s", table, alias)
+	return fmt.Sprintf("`%s` AS %s", table, alias)
 }
 
 // Build builds the Query.

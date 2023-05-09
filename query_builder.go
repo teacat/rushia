@@ -54,7 +54,7 @@ func (q *Query) bindParam(data interface{}, options *bindOptions) string {
 		return "NULL"
 	case string:
 		if options != nil && options.keepStringValue {
-			return v
+			return q.escapeCol(v)
 		}
 		q.params = append(q.params, data)
 		return "?"
@@ -65,8 +65,11 @@ func (q *Query) bindParam(data interface{}, options *bindOptions) string {
 }
 
 // separateStrings separates the strings with commas.
-func (q *Query) separateStrings(v []string) string {
-	return strings.Join(v, ", ")
+func (q *Query) separateStrings(strs []string) (result string) {
+	for _, v := range strs {
+		result += fmt.Sprintf("%s, ", q.escapeCol(v))
+	}
+	return strings.TrimSuffix(result, ", ")
 }
 
 // separateParams binds the values while separating them.
@@ -82,9 +85,17 @@ func (q *Query) separateParams(j []interface{}) string {
 func (q *Query) separatePairs(h H) string {
 	var qu string
 	for k, v := range h {
-		qu += fmt.Sprintf("%s = %s, ", k, q.bindParam(v, nil))
+		qu += fmt.Sprintf("%s = %s, ", q.escapeCol(k), q.bindParam(v, nil))
 	}
 	return q.trim(qu)
+}
+
+func (q *Query) escapeCol(v string) string {
+	// Ignore if `table.column`
+	if strings.Contains(v, ".") || strings.Contains(v, " ") || strings.Contains(v, "(") {
+		return v
+	}
+	return fmt.Sprintf("`%s`", v)
 }
 
 // separateGroups binds the value group and wraps each group in parentheses.
@@ -149,7 +160,8 @@ func buildExpr(expr *Expr) (query string, params []interface{}) {
 }
 
 func (q *Query) buildInsert(typ insertType) string {
-	columns, values, _ := q.flattenData(q.data)
+	columns, values, _ := q.explodeData(q.data, []string{})
+
 	insertQuery := typ.toQuery()
 	beforeQuery := q.padSpace(q.trim(q.buildBeforeQueryOptions()))
 	tableQuery := q.bindParam(q.table, &bindOptions{
@@ -172,7 +184,7 @@ func (q *Query) buildReplace() string {
 }
 
 func (q *Query) buildUpdate(isPatch bool) string {
-	_, _, h := q.flattenData(q.data)
+	_, _, h := q.explodeData(q.data, []string{})
 	data := h[0]
 	if isPatch {
 		data = q.patchH(data)
@@ -293,7 +305,7 @@ func (q *Query) buildJoin() string {
 
 		// .Join("Table", "Column = Column")
 		case v.table != "":
-			table = v.table
+			table = q.escapeCol(v.table)
 		}
 		jqu += fmt.Sprintf("%s %s ON (%s) ", v.typ.toQuery(), table, q.buildConditions(v.conditions))
 	}
@@ -337,8 +349,14 @@ func (q *Query) buildConditions(conditions []condition) string {
 		for argIndex, arg := range condition.args {
 			//
 			if v, ok := arg.(*Query); ok {
+
 				query, params := Build(v)
-				condition.query = replaceNth(condition.query, "?", query, argIndex+1)
+				//replacement := query
+				//if strings.Contains(condition.query, "EXISTS") {
+				//	replacement = fmt.Sprintf("(%s)", query)
+				//}
+
+				condition.query = replaceNth(condition.query, "?", fmt.Sprintf("(%s)", query), argIndex+1)
 				q.bindParams(params, nil)
 				continue
 			}
@@ -418,7 +436,11 @@ func (q *Query) buildGroupBy() string {
 	if len(q.groups) == 0 {
 		return ""
 	}
-	return fmt.Sprintf("GROUP BY %s", strings.Join(q.groups, ", "))
+	var result string
+	for _, v := range q.groups {
+		result += fmt.Sprintf("%s, ", q.escapeCol(v))
+	}
+	return fmt.Sprintf("GROUP BY %s", strings.TrimSuffix(result, ", "))
 }
 
 func (q *Query) buildLimit() string {
@@ -464,24 +486,78 @@ func (q *Query) buildAfterQueryOptions() string {
 // Helpers
 //=======================================================
 
-// flattenData parses the `interface{}` to a flatten columns, values group pair.
-// It also returns a H slice which converted from interface{}.
-func (q *Query) flattenData(data interface{}) (columns []string, values [][]interface{}, h []H) {
+func (q *Query) explodeData(data any, preferCols []string) (cols []string, vals [][]any, datas []H) {
 	switch v := data.(type) {
 	case H:
-		var k []interface{}
-		v = q.omitH(v)
-		columns, k = q.flattenH(v)
-		values = [][]interface{}{k}
-		h = []H{v}
+		val := q.omitH(v)
+		expCols, expVal := q.explodeH(val, preferCols)
+		return expCols, [][]any{expVal}, []H{val}
+
 	case []H:
-		columns, values, h = q.flattenHs(v)
+		for _, j := range v {
+			expCols, expVals, expDatas := q.explodeData(j, preferCols)
+			if len(preferCols) == 0 {
+				preferCols = expCols
+				cols = expCols
+			}
+			vals = append(vals, expVals...)
+			datas = append(datas, expDatas...)
+		}
+		return cols, vals, datas
+
 	case map[string]interface{}:
-		columns, values, h = q.flattenData(H(v))
+		return q.explodeData(H(v), preferCols)
+
 	case []map[string]interface{}:
-		columns, values, h = q.flattenData(q.mapsToHs(v))
+		return q.explodeData(q.mapsToHs(v), preferCols)
+
+	case reflect.Value:
+		switch v.Kind() {
+		case reflect.Ptr:
+			return q.explodeData(reflect.Indirect(v), preferCols)
+		default:
+			return q.explodeData(q.explodeValue(v), preferCols)
+		}
+
 	default:
-		columns, values, h = q.flattenData(q.structToH(v))
+		switch reflect.TypeOf(data).Kind() {
+		case reflect.Slice:
+			s := reflect.ValueOf(data)
+
+			for i := 0; i < s.Len(); i++ {
+				expCols, expVals, expDatas := q.explodeData(s.Index(i), preferCols)
+				if len(preferCols) == 0 {
+					preferCols = expCols
+					cols = expCols
+				}
+
+				vals = append(vals, expVals...)
+				datas = append(datas, expDatas...)
+			}
+			return cols, vals, datas
+
+		case reflect.Struct:
+			return q.explodeData(reflect.ValueOf(data), preferCols)
+
+		case reflect.Ptr:
+			return q.explodeData(reflect.Indirect(reflect.ValueOf(data)), preferCols)
+		}
+	}
+	panic("rushia: parsing unknown type")
+}
+
+// explodeH
+func (q *Query) explodeH(data H, preferCols []string) (cols []string, vals []interface{}) {
+	if len(preferCols) == 0 {
+		for k, v := range data {
+			cols = append(cols, k)
+			vals = append(vals, v)
+		}
+	} else {
+		for _, colKey := range preferCols {
+			cols = append(cols, colKey)
+			vals = append(vals, data[colKey]) // Ignore the error check and panic
+		}
 	}
 	return
 }
@@ -507,53 +583,20 @@ func (q *Query) omitH(data H) H {
 	return data
 }
 
-// flattenHs flatten a slice of H by passing it back to the `flattenData` and collects the result.
-func (q *Query) flattenHs(data []H) (columns []string, values [][]interface{}, hs []H) {
-	for k, j := range data {
-		cols, vals, h := q.flattenData(j)
-		if k == 0 {
-			columns = cols
-		}
-		values = append(values, vals[0])
-		hs = append(hs, h[0])
-	}
-	return
-}
-
-// flattenH flatten a H to column names, values.
-func (q *Query) flattenH(data H) (columns []string, values []interface{}) {
-	for k, v := range data {
-		columns = append(columns, k)
-		values = append(values, v)
-	}
-	return
-}
-
-// structToH converts a struct to H data and rename/omit it by the rushia struct tag.
-func (q *Query) structToH(data interface{}) H {
+// explodeValue converts a struct to H data and rename/omit it by the rushia struct tag.
+func (q *Query) explodeValue(val reflect.Value) H {
 	h := make(H)
-
-	var t reflect.Type
-	var v reflect.Value
-
-	// Get the real data type underneath the pointer if the data is a pointer.
-	if reflect.TypeOf(data).Kind() == reflect.Ptr {
-		t = reflect.Indirect(reflect.ValueOf(data)).Type()
-		v = reflect.Indirect(reflect.ValueOf(data))
-	} else {
-		t = reflect.TypeOf(data)
-		v = reflect.ValueOf(data)
-	}
+	t := val.Type()
 
 	for i := 0; i < t.NumField(); i++ {
-		k := t.Field(i).Name
+		k := q.conf.ColumnNamer(t.Field(i).Name)
 		if name, ok := t.Field(i).Tag.Lookup("rushia"); ok {
 			if name == "" || name == "-" {
 				continue
 			}
 			k = name
 		}
-		h[k] = v.Field(i).Interface()
+		h[k] = val.Field(i).Interface()
 	}
 	return h
 }
