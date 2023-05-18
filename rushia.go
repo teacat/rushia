@@ -136,7 +136,6 @@ type Query struct {
 
 	typ      queryType
 	subQuery *Query
-	conf     *Config
 
 	table        interface{}
 	wheres       []condition
@@ -164,15 +163,12 @@ type Query struct {
 
 	omits   []string
 	exclude exclude
-
-	db DB
 }
 
 // NewQuery creates a Query based on a table name or a sub query.
 func NewQuery(table interface{}) *Query {
 	q := &Query{
 		table: table,
-		conf:  DefaultConfig(),
 	}
 	return q
 }

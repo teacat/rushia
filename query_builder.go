@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+
+	"github.com/iancoleman/strcase"
 )
 
 // isOmitted searchs for the field in the query omit option.
@@ -589,7 +591,7 @@ func (q *Query) explodeValue(val reflect.Value) H {
 	t := val.Type()
 
 	for i := 0; i < t.NumField(); i++ {
-		k := q.conf.ColumnNamer(t.Field(i).Name)
+		k := strcase.ToSnake(t.Field(i).Name)
 		if name, ok := t.Field(i).Tag.Lookup("rushia"); ok {
 			if name == "" || name == "-" {
 				continue
